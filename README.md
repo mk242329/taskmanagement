@@ -1,3 +1,2 @@
 # taskmanagement
-
-タスク管理のためのリポジトリです。
+Task Management Project
