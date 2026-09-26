@@ -5,7 +5,7 @@ Trello風のタスク管理アプリです。スクールの課題として作�
 
 ## 要件
 
-詳細は [要件定義書](docs/requirements.md) と [設計書](docs/design.md) を参照してください。
+詳細は [要件定義書](docs/requirements.md)、[設計書](docs/design.md)、[テスト仕様書](docs/test-spec.md) を参照してください。
 
 ### 前提
 - 利用者：自分ひとり（ログイン・共有機能は不要）
