@@ -1,8 +1,9 @@
 # データベース設計
 
 作成日：2026年10月5日
+更新日：2026年10月6日（保存先を localStorage から PostgreSQL に変更）
 
-アプリで扱うデータの項目と、localStorage への保存方法をまとめる。
+アプリで扱うデータの項目と、PostgreSQL のテーブル定義をまとめる。
 
 ## 1. データ項目
 
@@ -25,55 +26,71 @@
 erDiagram
     LIST ||--o{ CARD : "含む"
     LIST {
-        string id PK "todo / doing / done"
-        string name "未着手 / 作業中 / 完了"
-        number order "左から何番目か"
+        varchar id PK "todo / doing / done"
+        varchar name "未着手 / 作業中 / 完了"
+        integer display_order "左から何番目か"
     }
     CARD {
-        string id PK "カードを区別する番号"
-        string title "タイトル（必須）"
-        string description "説明文"
-        datetime dueDate "期限"
+        bigint id PK "カードを区別する番号"
+        varchar title "タイトル（必須）"
+        varchar description "説明文"
+        timestamptz due_at "期限"
         boolean strict "時間厳守かどうか"
-        string listId FK "所属するリスト"
+        varchar list_id FK "所属するリスト"
+        integer position "リスト内の並び順"
         boolean notified "通知済みかどうか"
+        timestamptz created_at "作成日時"
+        timestamptz updated_at "更新日時"
     }
 ```
 
 - 1つのリストには、0枚以上のカードが入る
 - 1枚のカードは、必ず1つのリストに入る
-- リストは3つで固定のため、プログラムの中に直接書き、保存はしない
+- リストは3つで固定。Flyway の最初のテーブル作成 SQL で登録し、アプリから追加・変更・削除はしない
 
 ## 3. テーブル定義
 
-### 3.1 LIST（リスト）
+テーブル名・列名は小文字のスネークケース（`due_at` など）で書く。Java のクラスでは `dueAt` のようにキャメルケースにする。
 
-プログラムの中に直接書く。保存はしない。
+### 3.1 list（リスト）
 
-| id | name | order |
+| 列名 | 型 | NULL | 内容 |
+| --- | --- | --- | --- |
+| id | VARCHAR(10) | 不可 | 主キー |
+| name | VARCHAR(10) | 不可 | リストの名前 |
+| display_order | INTEGER | 不可 | 左から何番目か |
+
+登録するデータ：
+
+| id | name | display_order |
 | --- | --- | --- |
 | `todo` | 未着手 | 1 |
 | `doing` | 作業中 | 2 |
 | `done` | 完了 | 3 |
 
-### 3.2 CARD（カード）
+### 3.2 card（カード）
 
-| 項目 | 型 | 必須 | 内容 |
-| --- | --- | --- | --- |
-| id | 文字列 | 必須 | カードを区別する番号。作成した時刻から自動で作る |
-| title | 文字列 | 必須 | タイトル |
-| description | 文字列 | 任意 | 説明文。未入力は空の文字列 |
-| dueDate | 日時 | 任意 | 期限。未入力は空の文字列 |
-| strict | 真偽値 | 必須 | 時間厳守なら `true`。初期値は `false` |
-| listId | 文字列 | 必須 | 所属するリストの id |
-| notified | 真偽値 | 必須 | 通知済みなら `true`。期限を変更したら `false` に戻す |
+| 列名 | 型 | NULL | 初期値 | 内容 |
+| --- | --- | --- | --- | --- |
+| id | BIGINT | 不可 | 自動で連番 | 主キー（`GENERATED ALWAYS AS IDENTITY`） |
+| title | VARCHAR(50) | 不可 | ― | タイトル。1〜50文字 |
+| description | VARCHAR(500) | 不可 | `''` | 説明文。未入力は空の文字列 |
+| due_at | TIMESTAMPTZ | 可 | NULL | 期限。未入力は NULL |
+| strict | BOOLEAN | 不可 | `false` | 時間厳守なら `true` |
+| list_id | VARCHAR(10) | 不可 | `'todo'` | 所属するリストの id（外部キー → list.id） |
+| position | INTEGER | 不可 | ― | リスト内の並び順。0 から始まり、上から順に 0, 1, 2 … |
+| notified | BOOLEAN | 不可 | `false` | 通知済みなら `true`。期限を変更したら `false` に戻す |
+| created_at | TIMESTAMPTZ | 不可 | 現在日時 | 作成した日時 |
+| updated_at | TIMESTAMPTZ | 不可 | 現在日時 | 最後に変更した日時 |
 
-リスト内の表示順は、カードを保存している配列の順番で表す。
+- タイトルが空や空白だけでないかは、バックエンドの入力チェック（Bean Validation）で確かめる
+- 期限は日本時間で入力するが、タイムゾーン付きの型（TIMESTAMPTZ）で保存する
+- カードを別のリストへ移したり並び替えたりしたときは、移す前と移した先のリストの `position` を振り直す。1つのトランザクションでまとめて更新し、途中で失敗したら元に戻す
 
-優先度は保存しない。時間が経つと変わるため、表示のたびに期限と時間厳守から決める（[データフロー](data-flow.md) の「3. 通知・期限切れの判定」）。
+優先度は保存しない。時間が経つと変わるため、表示のたびに期限と時間厳守から決める（[データフロー](data-flow.md) の「4. 通知・期限切れの判定」）。
 
 ## 4. 保存方法
 
-- 保存先はブラウザの localStorage
-- カードの配列を JSON の文字列にして、1つのキーにまとめて保存する
-- 変更のたびに、配列全体を上書きして保存する
+- 保存先は PostgreSQL
+- 画面からは直接データベースに触らず、必ずバックエンドの API を通して読み書きする（API の一覧は [データフロー](data-flow.md) の「3. API 一覧」）
+- テーブルの作成・変更は Flyway の SQL ファイル（`backend/src/main/resources/db/migration/`）で管理する。データベースを直接書き換えて変更しない
