@@ -13,8 +13,11 @@ public class CardService {
 
 	private final CardRepository cardRepository;
 
-	public CardService(CardRepository cardRepository) {
+	private final TaskListRepository taskListRepository;
+
+	public CardService(CardRepository cardRepository, TaskListRepository taskListRepository) {
 		this.cardRepository = cardRepository;
+		this.taskListRepository = taskListRepository;
 	}
 
 	public List<CardResponse> findAll() {
@@ -27,6 +30,25 @@ public class CardService {
 		return cardRepository.findWithListById(id)
 				.map(CardResponse::from)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "カードが見つかりません（id=" + id + "）"));
+	}
+
+	/**
+	 * カードを追加する。追加先のリストの一番下に入る。
+	 */
+	@Transactional
+	public CardResponse create(CardCreateRequest request) {
+		String listId = request.listId() != null ? request.listId() : CardCreateRequest.DEFAULT_LIST_ID;
+		TaskList list = taskListRepository.findById(listId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "リストが見つかりません（listId=" + listId + "）"));
+
+		Card card = new Card(
+				request.title(),
+				request.description() != null ? request.description() : "",
+				request.dueAt(),
+				Boolean.TRUE.equals(request.strict()),
+				list,
+				cardRepository.findNextPosition(listId));
+		return CardResponse.from(cardRepository.save(card));
 	}
 
 }

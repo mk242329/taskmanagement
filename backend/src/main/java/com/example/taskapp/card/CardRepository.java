@@ -17,4 +17,10 @@ public interface CardRepository extends JpaRepository<Card, Long> {
 	@Query("select c from Card c join fetch c.list where c.id = :id")
 	Optional<Card> findWithListById(Long id);
 
+	/**
+	 * リスト内で次に使う並び順（一番下）。カードがなければ 0。
+	 */
+	@Query("select coalesce(max(c.position) + 1, 0) from Card c where c.list.id = :listId")
+	int findNextPosition(String listId);
+
 }

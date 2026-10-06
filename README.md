@@ -89,6 +89,11 @@ docker compose exec -T db psql -U taskapp -d taskapp < backend/seed/sample-cards
 ```sh
 curl http://localhost:8080/api/cards      # カード一覧（リストの表示順 → リスト内の並び順）
 curl http://localhost:8080/api/cards/1    # カード 1 件（存在しない id は 404）
+
+# カードの追加（title だけ必須。listId を省略すると未着手の一番下に入る）
+curl -X POST http://localhost:8080/api/cards \
+  -H 'Content-Type: application/json' \
+  -d '{"title": "課題A", "description": "第3章", "dueAt": "2026-10-08T18:00:00+09:00", "strict": true, "listId": "todo"}'
 ```
 
 日時は UTC の ISO 8601 形式（例：`2026-10-09T15:47:41Z`）で返します。

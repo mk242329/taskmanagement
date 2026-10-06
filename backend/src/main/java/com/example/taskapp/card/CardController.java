@@ -1,9 +1,15 @@
 package com.example.taskapp.card;
 
+import java.net.URI;
 import java.util.List;
 
+import jakarta.validation.Valid;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,6 +37,15 @@ public class CardController {
 	@GetMapping("/{id}")
 	public CardResponse findById(@PathVariable Long id) {
 		return cardService.findById(id);
+	}
+
+	/**
+	 * カードの追加。追加したカードを 201 で返す。入力に誤りがあれば 400 を返す。
+	 */
+	@PostMapping
+	public ResponseEntity<CardResponse> create(@Valid @RequestBody CardCreateRequest request) {
+		CardResponse created = cardService.create(request);
+		return ResponseEntity.created(URI.create("/api/cards/" + created.id())).body(created);
 	}
 
 }
