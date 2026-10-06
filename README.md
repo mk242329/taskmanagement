@@ -76,6 +76,23 @@ cd backend && ./mvnw spring-boot:run   # バックエンドを起動（http://lo
 
 テーブルはバックエンドの起動時に Flyway が `backend/src/main/resources/db/migration/` の SQL から自動で作ります。
 
+### テストデータの投入と API の確認
+
+バックエンドを一度起動してテーブルができたあとに、サンプルのカードを投入できます（既存のカードは消えます）。
+
+```sh
+docker compose exec -T db psql -U taskapp -d taskapp < backend/seed/sample-cards.sql
+```
+
+バックエンドを起動した状態で、API からカードを取得できます。
+
+```sh
+curl http://localhost:8080/api/cards      # カード一覧（リストの表示順 → リスト内の並び順）
+curl http://localhost:8080/api/cards/1    # カード 1 件（存在しない id は 404）
+```
+
+日時は UTC の ISO 8601 形式（例：`2026-10-09T15:47:41Z`）で返します。
+
 止めるときは `docker compose down`（データは残る）。データも消すときは `docker compose down -v`。
 
 ### テスト
