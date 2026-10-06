@@ -1,3 +1,6 @@
+# フォルダ名に日本語が含まれるため、プロジェクト名（コンテナ名の先頭）を固定する
+name: taskapp
+
 services:
   db:
     image: postgres:17

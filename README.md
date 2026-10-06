@@ -49,3 +49,41 @@ Next.js は使いません。詳細は [技術スタック](docs/design/tech-sta
 - 担当者の割り当て
 - 複数ボード
 - ブラウザを閉じている間の通知
+
+## 開発環境の起動
+
+Docker は Colima（Docker Desktop を使わずにコマンドだけで動かせる Docker）を使います。
+
+### 初回だけ
+
+```sh
+brew install colima docker docker-compose
+```
+
+`~/.docker/config.json` に次を追加し、`docker compose` を使えるようにします。
+
+```json
+"cliPluginsExtraDirs": ["/opt/homebrew/lib/docker/cli-plugins"]
+```
+
+### 毎回
+
+```sh
+colima start              # Docker を起動（Mac を再起動したら毎回必要）
+docker compose up -d      # PostgreSQL を起動
+cd backend && ./mvnw spring-boot:run   # バックエンドを起動（http://localhost:8080）
+```
+
+テーブルはバックエンドの起動時に Flyway が `backend/src/main/resources/db/migration/` の SQL から自動で作ります。
+
+止めるときは `docker compose down`（データは残る）。データも消すときは `docker compose down -v`。
+
+### テスト
+
+テストは Testcontainers で使い捨ての PostgreSQL を起動します。Colima の場合は次の環境変数が必要です。
+
+```sh
+export DOCKER_HOST=unix://$HOME/.colima/default/docker.sock
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+cd backend && ./mvnw test
+```
