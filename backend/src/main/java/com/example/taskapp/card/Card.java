@@ -1,6 +1,7 @@
 package com.example.taskapp.card;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -52,6 +53,20 @@ public class Card {
 	private OffsetDateTime updatedAt;
 
 	protected Card() {
+	}
+
+	public Card(String title, String description, OffsetDateTime dueAt, boolean strict, TaskList list, int position) {
+		// GET で返す日時（DB から読んだもの）と形をそろえるため、UTC で作る
+		OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+		this.title = title;
+		this.description = description;
+		this.dueAt = dueAt;
+		this.strict = strict;
+		this.list = list;
+		this.position = position;
+		this.notified = false;
+		this.createdAt = now;
+		this.updatedAt = now;
 	}
 
 	public Long getId() {
