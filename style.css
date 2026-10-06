@@ -1,0 +1,341 @@
+/* ===== 全体 ===== */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 1024px;
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+  font-size: 14px;
+  color: #172b4d;
+  background-color: #e9eef5;
+}
+
+/* ===== ① ヘッダー ===== */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background-color: #2f5d8a;
+  color: #fff;
+}
+
+.header-title {
+  margin: 0;
+  font-size: 20px;
+}
+
+/* プロトタイプ用：比較パネル */
+.proto-panel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.6);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.proto-label {
+  font-weight: bold;
+}
+
+.proto-panel select {
+  margin-left: 4px;
+  font-size: 12px;
+}
+
+/* ===== ボード ===== */
+.board {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 24px;
+}
+
+/* ===== ② リスト ===== */
+.list {
+  flex: 1;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background-color: #f4f5f7;
+}
+
+.list-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+.card-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 40px; /* カードが0枚でもドロップできるようにする */
+}
+
+/* ===== ③ カード ===== */
+.card {
+  padding: 10px 12px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background-color: #fff;
+  box-shadow: 0 1px 2px rgba(9, 30, 66, 0.25);
+  cursor: pointer;
+}
+
+.card:hover {
+  background-color: #f9fafc;
+}
+
+.card-line1 {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.card-title {
+  word-break: break-all;
+}
+
+.card-check {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  cursor: pointer;
+}
+
+.card-due {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #5e6c84;
+}
+
+/* 優先度ラベル */
+.priority {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.priority-high {
+  background-color: #e5484d;
+  color: #fff;
+}
+
+.priority-medium {
+  background-color: #f5c400;
+  color: #172b4d;
+}
+
+.priority-low {
+  background-color: #a0a7b4;
+  color: #fff;
+}
+
+/* 期限切れ */
+.card.overdue {
+  border-color: #e5484d;
+}
+
+.card.overdue .card-due {
+  color: #e5484d;
+  font-weight: bold;
+}
+
+.overdue-badge {
+  margin-left: 6px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background-color: #e5484d;
+  color: #fff;
+  font-size: 11px;
+}
+
+/* ドラッグ中 */
+.card-ghost {
+  opacity: 0.4;
+}
+
+/* ===== ④ 追加ボタン ===== */
+.add-button {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #5e6c84;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.add-button:hover {
+  background-color: #dfe3ea;
+  color: #172b4d;
+}
+
+/* ===== ボタン共通 ===== */
+.btn {
+  padding: 6px 14px;
+  border: 1px solid #c1c7d0;
+  border-radius: 4px;
+  background-color: #fff;
+  color: #172b4d;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background-color: #f4f5f7;
+}
+
+.btn-primary {
+  border-color: #2f5d8a;
+  background-color: #2f5d8a;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background-color: #244a6f;
+}
+
+.btn-danger {
+  border-color: #e5484d;
+  color: #e5484d;
+}
+
+.btn-danger:hover {
+  background-color: #fdecec;
+}
+
+.btn-small {
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+/* ===== SC-02 / SC-03 ダイアログ ===== */
+.dialog {
+  width: 520px;
+  padding: 24px;
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(9, 30, 66, 0.3);
+}
+
+.dialog::backdrop {
+  background-color: rgba(9, 30, 66, 0.5);
+}
+
+.dialog-small {
+  width: 360px;
+}
+
+.dialog-heading {
+  margin: 0 0 20px;
+  font-size: 18px;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.form-row > label,
+.form-label {
+  flex-shrink: 0;
+  width: 110px;
+  padding-top: 6px;
+}
+
+.form-field {
+  flex: 1;
+}
+
+.form-field input,
+.form-field textarea,
+.form-field select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #c1c7d0;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.form-field select {
+  width: auto;
+}
+
+.form-field textarea {
+  resize: vertical;
+}
+
+.form-field input[type="checkbox"] {
+  width: auto;
+  margin: 0 6px 0 0;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  padding-top: 6px;
+  cursor: pointer;
+}
+
+.form-field-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.form-hint {
+  color: #5e6c84;
+  font-size: 12px;
+}
+
+/* 入力エラー */
+.form-field input.input-error {
+  border: 2px solid #e5484d;
+  outline-color: #e5484d;
+}
+
+.error-message {
+  margin: 4px 0 0;
+  color: #e5484d;
+  font-size: 12px;
+}
+
+.error-message:empty {
+  display: none;
+}
+
+.dialog-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24px;
+}
+
+.dialog-buttons-right {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.dialog-buttons-end {
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.confirm-message {
+  margin: 0;
+}
