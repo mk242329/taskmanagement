@@ -110,4 +110,4 @@ taskmanagement/
     └── test-spec.md             … テスト仕様書
 ```
 
-`backend/`、`frontend/`、`prototype/` はこれから作る（今あるプロトタイプのファイルは `prototype/` に移す予定）。
+`backend/` と `docker-compose.yml` は作成済み（Spring Initializr で作った初期状態）。`frontend/`、`prototype/` はこれから作る（今あるプロトタイプのファイルは `prototype/` に移す予定）。
