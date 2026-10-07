@@ -68,6 +68,15 @@ brew install colima docker docker-compose
 
 ### 毎回
 
+次の 1 コマンドで、DB・バックエンド（http://localhost:8080）・フロントエンド（http://localhost:5173）をまとめて起動できます。ポートがほかのプロセスに使われているときは、そのプロセスを止めてから決められたポートで起動します。
+
+```sh
+scripts/dev-start.sh      # すべて起動（backend / frontend を付けるとそれだけ）
+scripts/dev-stop.sh       # バックエンドとフロントエンドを止める
+```
+
+ログは `.dev/backend.log`・`.dev/frontend.log` に出ます。手動で起動するときは次のとおりです。
+
 ```sh
 colima start              # Docker を起動（Mac を再起動したら毎回必要）
 docker compose up -d      # PostgreSQL を起動
