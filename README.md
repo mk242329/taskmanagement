@@ -74,6 +74,14 @@ docker compose up -d      # PostgreSQL を起動
 cd backend && ./mvnw spring-boot:run   # バックエンドを起動（http://localhost:8080）
 ```
 
+別のターミナルでフロントエンドを起動し、http://localhost:5173 を開きます。`/api` へのリクエストは Vite がバックエンドに転送します。
+
+```sh
+cd frontend
+npm install               # 初回と、package.json が変わったときだけ
+npm run dev               # フロントエンドを起動（http://localhost:5173）
+```
+
 テーブルはバックエンドの起動時に Flyway が `backend/src/main/resources/db/migration/` の SQL から自動で作ります。
 
 ### テストデータの投入と API の確認
@@ -108,4 +116,13 @@ curl -X POST http://localhost:8080/api/cards \
 export DOCKER_HOST=unix://$HOME/.colima/default/docker.sock
 export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
 cd backend && ./mvnw test
+```
+
+フロントエンドのテスト・チェックは `frontend/` で次を実行します。
+
+```sh
+npm test                  # Vitest（監視モード。1回だけなら npm test -- --run）
+npm run lint              # oxlint
+npm run format            # Prettier で整形
+npm run build             # 型チェックとビルド
 ```

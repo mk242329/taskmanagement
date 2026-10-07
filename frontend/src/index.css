@@ -1,0 +1,29 @@
+/* ===== 全体 ===== */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 1024px;
+  font-family:
+    'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+  font-size: 14px;
+  color: #172b4d;
+  background-color: #e9eef5;
+}
+
+/* ===== ① ヘッダー ===== */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background-color: #2f5d8a;
+  color: #fff;
+}
+
+.header-title {
+  margin: 0;
+  font-size: 20px;
+}
