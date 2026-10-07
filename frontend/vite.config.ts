@@ -5,6 +5,9 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   plugins: [react()],
   server: {
+    // 5173 が使われているときに別のポートへずらさず、エラーで止める
+    port: 5173,
+    strictPort: true,
     // API はバックエンドに転送する（同じオリジンになるため CORS の設定が要らない）
     proxy: {
       '/api': 'http://localhost:8080',
