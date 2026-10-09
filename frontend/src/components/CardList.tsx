@@ -5,10 +5,11 @@ type Props = {
   name: string
   cards: Card[]
   now: Date
+  onAdd: () => void
 }
 
 /** SC-01 ② リスト */
-function CardList({ name, cards, now }: Props) {
+function CardList({ name, cards, now, onAdd }: Props) {
   return (
     <section className="list" aria-label={name}>
       <h2 className="list-title">
@@ -19,8 +20,7 @@ function CardList({ name, cards, now }: Props) {
           <CardItem key={card.id} card={card} now={now} />
         ))}
       </div>
-      {/* カード編集ウィンドウを作るまでは、押しても何もしない */}
-      <button type="button" className="add-button">
+      <button type="button" className="add-button" onClick={onAdd}>
         ＋ タスクを追加
       </button>
     </section>

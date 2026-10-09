@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { fetchCards, type Card } from '../api/cards'
+import { createCard, fetchCards, type Card, type ListId } from '../api/cards'
 import { LISTS } from '../domain/card'
+import CardFormDialog, { type CardFormValues } from './CardFormDialog'
 import CardList from './CardList'
 
 // 優先度・期限切れの表示を決め直す間隔
@@ -11,6 +12,8 @@ function Board() {
   const [cards, setCards] = useState<Card[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => new Date())
+  // カードを追加しようとしているリスト。null のときはウィンドウを閉じている
+  const [addingTo, setAddingTo] = useState<ListId | null>(null)
 
   useEffect(() => {
     let ignore = false
@@ -32,6 +35,14 @@ function Board() {
     return () => clearInterval(timer)
   }, [])
 
+  async function handleAdd(listId: ListId, values: CardFormValues) {
+    const created = await createCard({ ...values, listId })
+    // 追加したカードはリストの一番下に入るため、末尾に足せば並び順どおりになる
+    setCards((prev) => [...(prev ?? []), created])
+    setNow(new Date())
+    setAddingTo(null)
+  }
+
   if (error !== null) {
     return (
       <p className="board-message board-error" role="alert">
@@ -52,8 +63,16 @@ function Board() {
           name={list.name}
           cards={cards.filter((card) => card.listId === list.id)}
           now={now}
+          onAdd={() => setAddingTo(list.id)}
         />
       ))}
+      {addingTo !== null && (
+        <CardFormDialog
+          heading="タスクの追加"
+          onSave={(values) => handleAdd(addingTo, values)}
+          onCancel={() => setAddingTo(null)}
+        />
+      )}
     </main>
   )
 }

@@ -1,4 +1,10 @@
-import { formatDue, getPriority, isOverdue } from './card'
+import {
+  formatDue,
+  getPriority,
+  isOverdue,
+  toDueAt,
+  validateTitle,
+} from './card'
 
 // 2026-10-07 12:00（ブラウザの時刻）を「今」とする
 const now = new Date(2026, 9, 7, 12, 0)
@@ -51,4 +57,23 @@ test('formatDue は「月/日 時:分」の形にする', () => {
   expect(formatDue(new Date(2026, 8, 30, 20, 5).toISOString())).toBe(
     '9/30 20:05',
   )
+})
+
+describe('validateTitle', () => {
+  test.each([
+    ['空', '', 'タイトルを入力してください'], // T-03-01
+    ['空白だけ', ' 　 ', 'タイトルを入力してください'], // T-03-02
+    ['1文字', 'a', null], // T-03-03
+    ['50文字', 'あ'.repeat(50), null], // T-03-04
+    ['51文字', 'あ'.repeat(51), 'タイトルは50文字以内で入力してください'], // T-03-05
+  ] as const)('%s', (_, title, expected) => {
+    expect(validateTitle(title)).toBe(expected)
+  })
+})
+
+test('toDueAt は入力欄の値（ブラウザの時刻）を ISO 文字列にし、空なら null にする', () => {
+  expect(toDueAt('2026-10-07T18:30')).toBe(
+    new Date(2026, 9, 7, 18, 30).toISOString(),
+  )
+  expect(toDueAt('')).toBeNull()
 })
