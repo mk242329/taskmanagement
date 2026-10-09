@@ -12,10 +12,20 @@ type Props = {
   onAdd: () => void
   onOpen: (card: Card) => void
   onCheck: (card: Card) => void
+  onDelete: (card: Card) => void
 }
 
 /** SC-01 ② リスト。カードを落とせる（空のリストにも落とせる） */
-function CardList({ listId, name, cards, now, onAdd, onOpen, onCheck }: Props) {
+function CardList({
+  listId,
+  name,
+  cards,
+  now,
+  onAdd,
+  onOpen,
+  onCheck,
+  onDelete,
+}: Props) {
   const { setNodeRef } = useDroppable({ id: listDroppableId(listId) })
 
   return (
@@ -35,6 +45,7 @@ function CardList({ listId, name, cards, now, onAdd, onOpen, onCheck }: Props) {
               now={now}
               onOpen={() => onOpen(card)}
               onCheck={() => onCheck(card)}
+              onDelete={() => onDelete(card)}
             />
           ))}
         </div>

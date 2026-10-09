@@ -15,10 +15,12 @@ type Props = {
   onOpen: () => void
   /** チェックボックスを押したとき（次のリストへ移す） */
   onCheck: () => void
+  /** ゴミ箱マークを押したとき（削除確認ダイアログを開く） */
+  onDelete: () => void
 }
 
 /** SC-01 ③ カード。ドラッグで移動・並び替えできる（F-05・F-06） */
-function CardItem({ card, now, onOpen, onCheck }: Props) {
+function CardItem({ card, now, onOpen, onCheck, onDelete }: Props) {
   const {
     attributes,
     listeners,
@@ -48,7 +50,7 @@ function CardItem({ card, now, onOpen, onCheck }: Props) {
       aria-roledescription="並び替えできるタスク"
       onClick={onOpen}
       onKeyDown={(e) => {
-        // チェックボックスでのキー操作は、カードの操作にしない
+        // チェックボックス・ゴミ箱マークでのキー操作は、カードの操作にしない
         if (e.target !== e.currentTarget) return
         // Enter は編集。スペースはドラッグの開始・終了（dnd-kit に渡す）
         if (e.key === 'Enter' && !isDragging) {
@@ -59,7 +61,12 @@ function CardItem({ card, now, onOpen, onCheck }: Props) {
         listeners?.onKeyDown?.(e)
       }}
     >
-      <CardContent card={card} now={now} onCheck={onCheck} />
+      <CardContent
+        card={card}
+        now={now}
+        onCheck={onCheck}
+        onDelete={onDelete}
+      />
     </div>
   )
 }
@@ -81,11 +88,14 @@ function CardContent({
   card,
   now,
   onCheck,
+  onDelete,
 }: {
   card: Card
   now: Date
   /** 省略するとチェックボックスは押せない（ドラッグ中の表示用） */
   onCheck?: () => void
+  /** 省略するとゴミ箱マークを表示しない（ドラッグ中の表示用） */
+  onDelete?: () => void
 }) {
   const priority = getPriority(card, now)
   return (
@@ -116,11 +126,48 @@ function CardContent({
           {PRIORITY_LABELS[priority]}
         </span>
         <span className="card-title">{card.title}</span>
+        {onDelete !== undefined && (
+          <button
+            type="button"
+            className="card-delete"
+            aria-label={`${card.title} を削除`}
+            title="削除"
+            // 押しても編集ウィンドウは開かない
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete()
+            }}
+          >
+            <TrashIcon />
+          </button>
+        )}
       </div>
       {card.dueAt !== null && (
         <div className="card-due">{formatDue(card.dueAt)}</div>
       )}
     </>
+  )
+}
+
+/** ゴミ箱マーク */
+function TrashIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
   )
 }
 

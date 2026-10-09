@@ -15,6 +15,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useEffect, useRef, useState } from 'react'
 import {
   createCard,
+  deleteCard,
   fetchCards,
   moveCard,
   updateCard,
@@ -22,10 +23,11 @@ import {
   type ListId,
 } from '../api/cards'
 import { LISTS, nextListOnCheck } from '../domain/card'
-import { moveLocally, resolveDropTarget } from '../domain/move'
+import { moveLocally, removeLocally, resolveDropTarget } from '../domain/move'
 import { CardDragPreview } from './CardItem'
 import CardFormDialog, { type CardFormValues } from './CardFormDialog'
 import CardList from './CardList'
+import ConfirmDialog from './ConfirmDialog'
 
 // 優先度・期限切れの表示を決め直す間隔
 const REFRESH_INTERVAL_MS = 30 * 1000
@@ -49,6 +51,8 @@ function Board() {
   const [addingTo, setAddingTo] = useState<ListId | null>(null)
   // 編集しているカード。null のときはウィンドウを閉じている
   const [editing, setEditing] = useState<Card | null>(null)
+  // 削除してよいか確認しているカード。null のときは確認ダイアログを閉じている
+  const [deleting, setDeleting] = useState<Card | null>(null)
   // 移動など、ボード上の操作に失敗したときのメッセージ
   const [actionError, setActionError] = useState<string | null>(null)
   // 掴んでいるカードの id。null のときはドラッグしていない
@@ -107,6 +111,14 @@ function Board() {
     )
     setNow(new Date())
     setEditing(null)
+  }
+
+  /** 確認ダイアログで「OK」を押したら削除する（F-04）。編集中のカードなら編集ウィンドウも閉じる */
+  async function handleDelete(id: number) {
+    await deleteCard(id)
+    setCards((prev) => removeLocally(prev ?? [], id))
+    setEditing((prev) => (prev?.id === id ? null : prev))
+    setDeleting(null)
   }
 
   /** チェックボックスで次のリストの一番下へ移す（F-11） */
@@ -247,6 +259,7 @@ function Board() {
             onAdd={() => setAddingTo(list.id)}
             onOpen={setEditing}
             onCheck={handleCheck}
+            onDelete={setDeleting}
           />
         ))}
         {addingTo !== null && (
@@ -262,6 +275,15 @@ function Board() {
             initial={editing}
             onSave={(values) => handleEdit(editing.id, values)}
             onCancel={() => setEditing(null)}
+            onDelete={() => setDeleting(editing)}
+          />
+        )}
+        {/* 編集ウィンドウから開いたときは上に重ね、「キャンセル」で編集に戻る */}
+        {deleting !== null && (
+          <ConfirmDialog
+            message="このタスクを削除しますか？"
+            onOk={() => handleDelete(deleting.id)}
+            onCancel={() => setDeleting(null)}
           />
         )}
       </main>

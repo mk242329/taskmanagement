@@ -92,6 +92,14 @@ export async function moveCard(
   return res.json()
 }
 
+/** カードを削除する。残ったカードの並び順はサーバーで詰め直される */
+export async function deleteCard(id: number): Promise<void> {
+  const res = await fetch(`/api/cards/${id}`, { method: 'DELETE' })
+  if (!res.ok) {
+    throw await readError(res)
+  }
+}
+
 /** API がエラーを返したときの例外。入力の誤りは項目ごとのメッセージを errors に持つ */
 export class ApiError extends Error {
   errors: Record<string, string>

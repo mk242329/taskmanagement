@@ -97,6 +97,21 @@ public class CardService {
 		return findAll();
 	}
 
+	/**
+	 * カードを削除する。残ったカードの並び順を 0 から詰め直す。
+	 */
+	@Transactional
+	public void delete(Long id) {
+		Card card = cardRepository.findWithListById(id)
+				.orElseThrow(() -> notFound(id));
+		String listId = card.getList().getId();
+		cardRepository.delete(card);
+
+		List<Card> rest = new ArrayList<>(cardRepository.findByListIdOrdered(listId));
+		rest.removeIf(c -> c.getId().equals(id));
+		renumber(rest);
+	}
+
 	private static void renumber(List<Card> cards) {
 		for (int i = 0; i < cards.size(); i++) {
 			cards.get(i).renumber(i);

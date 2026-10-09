@@ -19,10 +19,18 @@ type Props = {
   /** 保存する。失敗したら例外を投げ、ウィンドウは開いたままにする */
   onSave: (values: CardFormValues) => Promise<void>
   onCancel: () => void
+  /** 「削除」を押したとき（削除確認ダイアログを開く）。省略すると「削除」を表示しない（追加） */
+  onDelete?: () => void
 }
 
 /** SC-02 カード編集ウィンドウ（追加と編集に使う） */
-function CardFormDialog({ heading, initial, onSave, onCancel }: Props) {
+function CardFormDialog({
+  heading,
+  initial,
+  onSave,
+  onCancel,
+  onDelete,
+}: Props) {
   const [title, setTitle] = useState(initial?.title ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   // 日付と時刻の入力欄の値（例：2026-10-10T18:00）。空なら期限なし
@@ -175,8 +183,17 @@ function CardFormDialog({ heading, initial, onSave, onCancel }: Props) {
           </p>
         )}
 
-        {/* 「削除」は編集のときだけ左端に置く（F-04 で追加する） */}
         <div className="dialog-buttons">
+          {/* 「削除」は編集のときだけ左端に置く（F-04） */}
+          {onDelete !== undefined && (
+            <button
+              type="button"
+              className="button button-danger-outline dialog-buttons-left"
+              onClick={onDelete}
+            >
+              削除
+            </button>
+          )}
           <button type="button" className="button" onClick={onCancel}>
             キャンセル
           </button>

@@ -1,6 +1,11 @@
 import type { Card } from '../api/cards'
 import { makeCard } from '../test/cards'
-import { listDroppableId, moveLocally, resolveDropTarget } from './move'
+import {
+  listDroppableId,
+  moveLocally,
+  removeLocally,
+  resolveDropTarget,
+} from './move'
 
 // 未着手：1, 2, 3／作業中：4／完了：なし
 const cards: Card[] = [
@@ -87,4 +92,12 @@ describe('moveLocally', () => {
       layout(moveLocally(cards, 1, { listId: 'doing', index: 99 })),
     ).toEqual(['todo:2:0', 'todo:3:1', 'doing:4:0', 'doing:1:1'])
   })
+})
+
+test('removeLocally はカードを除き、残ったカードの並び順を詰め直す', () => {
+  expect(layout(removeLocally(cards, 2))).toEqual([
+    'todo:1:0',
+    'todo:3:1',
+    'doing:4:0',
+  ])
 })
