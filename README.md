@@ -213,6 +213,7 @@ URL はすべて `/api` から始まり、JSON でやり取りします。全体
 | カード 1 件の取得（存在しない id は 404） | GET | `/api/cards/{id}` |
 | カードの追加（`title` だけ必須。`listId` を省略すると未着手の一番下に入る） | POST | `/api/cards` |
 | カードの編集（タイトル・説明文・期限・時間厳守。期限を変えると通知済みを戻す） | PUT | `/api/cards/{id}` |
+| カードの移動・並び替え（`listId` は必須。`position` を省略すると一番下に入る。移動後のカード一覧を返す） | PATCH | `/api/cards/{id}/move` |
 
 ```sh
 curl http://localhost:8080/api/cards
@@ -225,6 +226,10 @@ curl -X POST http://localhost:8080/api/cards \
 curl -X PUT http://localhost:8080/api/cards/1 \
   -H 'Content-Type: application/json' \
   -d '{"title": "課題A（修正）", "description": "第4章", "dueAt": null, "strict": false}'
+
+curl -X PATCH http://localhost:8080/api/cards/1/move \
+  -H 'Content-Type: application/json' \
+  -d '{"listId": "doing", "position": 0}'
 ```
 
 - 日時は UTC の ISO 8601 形式（例：`2026-10-09T15:47:41Z`）で返します
@@ -279,8 +284,8 @@ main ブランチへの直接コミット・プッシュは、GitHub のブラ�
 | F-04 | カード削除 | ⬜ 未着手 |
 | F-05 | リスト間の移動 | ⬜ 未着手 |
 | F-06 | リスト内の並び替え | ⬜ 未着手 |
-| F-07 | データ保存 | 🚧 追加・編集・読み込みは保存される（削除・移動はこれから） |
+| F-07 | データ保存 | 🚧 追加・編集・チェックでの移動・読み込みは保存される（削除・ドラッグでの移動はこれから） |
 | F-08 | リマインド通知 | ⬜ 未着手 |
 | F-09 | 期限切れの表示 | ✅ 期限を過ぎた未完了のカードを赤色で表示する |
 | F-10 | 優先度の自動判定 | ✅ 画面で優先度を判定して表示する。編集で期限・時間厳守を変えると更新される |
-| F-11 | チェックでの移動 | ⬜ 未着手（チェックボックスの表示のみ） |
+| F-11 | チェックでの移動 | ✅ チェックで 未着手 → 作業中 → 完了 へ移し、完了のチェックを外すと作業中へ戻す |

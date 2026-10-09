@@ -2,6 +2,7 @@ import {
   formatDue,
   getPriority,
   isOverdue,
+  nextListOnCheck,
   toDueAt,
   toLocalInput,
   validateTitle,
@@ -39,6 +40,12 @@ describe('getPriority', () => {
       'high',
     )
   })
+})
+
+test('nextListOnCheck は 未着手 → 作業中 → 完了 へ進め、完了は作業中へ戻す', () => {
+  expect(nextListOnCheck('todo')).toBe('doing')
+  expect(nextListOnCheck('doing')).toBe('done')
+  expect(nextListOnCheck('done')).toBe('doing')
 })
 
 describe('isOverdue', () => {

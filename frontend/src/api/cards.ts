@@ -72,6 +72,26 @@ export async function updateCard(
   return res.json()
 }
 
+/**
+ * カードを別のリスト・別の位置へ移す（同じリストなら並び替え）。
+ * position はリストの中での順番（0 が一番上）で、省略すると一番下に入る。移動後のカード一覧が返る
+ */
+export async function moveCard(
+  id: number,
+  listId: ListId,
+  position?: number,
+): Promise<Card[]> {
+  const res = await fetch(`/api/cards/${id}/move`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ listId, position }),
+  })
+  if (!res.ok) {
+    throw await readError(res)
+  }
+  return res.json()
+}
+
 /** API がエラーを返したときの例外。入力の誤りは項目ごとのメッセージを errors に持つ */
 export class ApiError extends Error {
   errors: Record<string, string>

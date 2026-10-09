@@ -282,3 +282,15 @@ textarea.input {
   color: #e5484d;
   font-weight: bold;
 }
+
+/* ボードの上に出す操作のエラー。リストの並びを崩さないよう、画面の上に重ねる */
+.board-action-error {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border-radius: 6px;
+  background-color: #fff;
+  box-shadow: 0 2px 8px rgba(9, 30, 66, 0.3);
+}

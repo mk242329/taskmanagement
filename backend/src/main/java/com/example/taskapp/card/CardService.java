@@ -1,5 +1,6 @@
 package com.example.taskapp.card;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -64,6 +65,42 @@ public class CardService {
 				request.dueAt(),
 				Boolean.TRUE.equals(request.strict()));
 		return CardResponse.from(card);
+	}
+
+	/**
+	 * カードを指定したリストの指定した位置へ移す（同じリストなら並び替え）。
+	 * 移動元・移動先のリストの並び順を 0 から詰め直し、移動後のカード一覧を返す。
+	 */
+	@Transactional
+	public List<CardResponse> move(Long id, CardMoveRequest request) {
+		Card card = cardRepository.findWithListById(id)
+				.orElseThrow(() -> notFound(id));
+		TaskList to = taskListRepository.findById(request.listId())
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "リストが見つかりません（listId=" + request.listId() + "）"));
+		String fromListId = card.getList().getId();
+
+		// 移動元のリストから外して詰め直す
+		List<Card> fromCards = new ArrayList<>(cardRepository.findByListIdOrdered(fromListId));
+		fromCards.removeIf(c -> c.getId().equals(id));
+		renumber(fromCards);
+
+		// 移動先のリストの指定した位置に入れて詰め直す（同じリストなら、外したあとの並びに入れる）
+		List<Card> toCards = to.getId().equals(fromListId)
+				? fromCards
+				: new ArrayList<>(cardRepository.findByListIdOrdered(to.getId()));
+		int position = request.position() == null ? toCards.size() : Math.min(request.position(), toCards.size());
+		toCards.add(position, card);
+		card.moveTo(to, position);
+		renumber(toCards);
+
+		cardRepository.flush();
+		return findAll();
+	}
+
+	private static void renumber(List<Card> cards) {
+		for (int i = 0; i < cards.size(); i++) {
+			cards.get(i).renumber(i);
+		}
 	}
 
 	private static ResponseStatusException notFound(Long id) {
