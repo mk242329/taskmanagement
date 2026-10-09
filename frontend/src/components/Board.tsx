@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
-import { createCard, fetchCards, type Card, type ListId } from '../api/cards'
+import {
+  createCard,
+  fetchCards,
+  updateCard,
+  type Card,
+  type ListId,
+} from '../api/cards'
 import { LISTS } from '../domain/card'
 import CardFormDialog, { type CardFormValues } from './CardFormDialog'
 import CardList from './CardList'
@@ -14,6 +20,8 @@ function Board() {
   const [now, setNow] = useState(() => new Date())
   // カードを追加しようとしているリスト。null のときはウィンドウを閉じている
   const [addingTo, setAddingTo] = useState<ListId | null>(null)
+  // 編集しているカード。null のときはウィンドウを閉じている
+  const [editing, setEditing] = useState<Card | null>(null)
 
   useEffect(() => {
     let ignore = false
@@ -43,6 +51,16 @@ function Board() {
     setAddingTo(null)
   }
 
+  async function handleEdit(id: number, values: CardFormValues) {
+    const updated = await updateCard(id, values)
+    // リストと並び順は変わらないため、同じ場所のカードを入れ替える
+    setCards((prev) =>
+      (prev ?? []).map((card) => (card.id === id ? updated : card)),
+    )
+    setNow(new Date())
+    setEditing(null)
+  }
+
   if (error !== null) {
     return (
       <p className="board-message board-error" role="alert">
@@ -64,6 +82,7 @@ function Board() {
           cards={cards.filter((card) => card.listId === list.id)}
           now={now}
           onAdd={() => setAddingTo(list.id)}
+          onOpen={setEditing}
         />
       ))}
       {addingTo !== null && (
@@ -71,6 +90,14 @@ function Board() {
           heading="タスクの追加"
           onSave={(values) => handleAdd(addingTo, values)}
           onCancel={() => setAddingTo(null)}
+        />
+      )}
+      {editing !== null && (
+        <CardFormDialog
+          heading="タスクの編集"
+          initial={editing}
+          onSave={(values) => handleEdit(editing.id, values)}
+          onCancel={() => setEditing(null)}
         />
       )}
     </main>

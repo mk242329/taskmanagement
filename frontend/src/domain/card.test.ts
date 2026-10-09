@@ -3,6 +3,7 @@ import {
   getPriority,
   isOverdue,
   toDueAt,
+  toLocalInput,
   validateTitle,
 } from './card'
 
@@ -69,6 +70,13 @@ describe('validateTitle', () => {
   ] as const)('%s', (_, title, expected) => {
     expect(validateTitle(title)).toBe(expected)
   })
+})
+
+test('toLocalInput は期限を入力欄の値（ブラウザの時刻）にし、null なら空にする', () => {
+  expect(toLocalInput(new Date(2026, 0, 2, 3, 4).toISOString())).toBe(
+    '2026-01-02T03:04',
+  )
+  expect(toLocalInput(null)).toBe('')
 })
 
 test('toDueAt は入力欄の値（ブラウザの時刻）を ISO 文字列にし、空なら null にする', () => {

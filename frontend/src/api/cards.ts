@@ -25,6 +25,9 @@ export type CardCreateInput = {
   listId: ListId
 }
 
+/** カードを編集するときに送る内容（backend の CardUpdateRequest と同じ形） */
+export type CardUpdateInput = Omit<CardCreateInput, 'listId'>
+
 /** API がエラーのときに返す形（backend の ApiExceptionHandler.ErrorResponse） */
 type ErrorResponse = {
   message: string
@@ -44,6 +47,22 @@ export async function fetchCards(): Promise<Card[]> {
 export async function createCard(input: CardCreateInput): Promise<Card> {
   const res = await fetch('/api/cards', {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) {
+    throw await readError(res)
+  }
+  return res.json()
+}
+
+/** カードのタイトル・説明文・期限・時間厳守を変更し、編集後のカードが返る */
+export async function updateCard(
+  id: number,
+  input: CardUpdateInput,
+): Promise<Card> {
+  const res = await fetch(`/api/cards/${id}`, {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   })

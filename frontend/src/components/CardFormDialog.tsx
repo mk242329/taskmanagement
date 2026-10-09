@@ -5,6 +5,7 @@ import {
   getPriority,
   PRIORITY_LABELS,
   toDueAt,
+  toLocalInput,
   validateTitle,
 } from '../domain/card'
 
@@ -13,24 +14,30 @@ export type CardFormValues = Omit<CardCreateInput, 'listId'>
 
 type Props = {
   heading: string
+  /** 編集のときの今の値。省略すると空の入力欄で開く（追加） */
+  initial?: CardFormValues
   /** 保存する。失敗したら例外を投げ、ウィンドウは開いたままにする */
   onSave: (values: CardFormValues) => Promise<void>
   onCancel: () => void
 }
 
-/** SC-02 カード編集ウィンドウ（今は追加だけに使う） */
-function CardFormDialog({ heading, onSave, onCancel }: Props) {
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
+/** SC-02 カード編集ウィンドウ（追加と編集に使う） */
+function CardFormDialog({ heading, initial, onSave, onCancel }: Props) {
+  const [title, setTitle] = useState(initial?.title ?? '')
+  const [description, setDescription] = useState(initial?.description ?? '')
   // 日付と時刻の入力欄の値（例：2026-10-10T18:00）。空なら期限なし
-  const [due, setDue] = useState('')
-  const [strict, setStrict] = useState(false)
+  const initialDue = toLocalInput(initial?.dueAt ?? null)
+  const [due, setDue] = useState(initialDue)
+  const [strict, setStrict] = useState(initial?.strict ?? false)
   const [titleError, setTitleError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const id = useId()
-  const dueAt = toDueAt(due)
+  // 入力欄は秒を持たないため、期限を触っていなければ今の値をそのまま使う
+  // （秒がずれて「期限を変えた」と扱われ、通知がやり直しになるのを防ぐ）
+  const dueAt =
+    initial !== undefined && due === initialDue ? initial.dueAt : toDueAt(due)
   // 入力中の期限と時間厳守から決まる優先度を、その場で表示する
   const priority = getPriority({ dueAt, strict })
 

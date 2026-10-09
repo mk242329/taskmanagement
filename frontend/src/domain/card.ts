@@ -86,3 +86,11 @@ export function validateTitle(title: string): string | null {
 export function toDueAt(localValue: string): string | null {
   return localValue === '' ? null : new Date(localValue).toISOString()
 }
+
+/** API の期限（ISO 文字列）を、日付と時刻の入力欄の値（ブラウザの時刻）にする。null なら空 */
+export function toLocalInput(dueAt: string | null): string {
+  if (dueAt === null) return ''
+  const d = new Date(dueAt)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
