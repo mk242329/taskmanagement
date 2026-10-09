@@ -6,6 +6,7 @@ import java.util.List;
 import jakarta.validation.Valid;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -65,6 +66,15 @@ public class CardController {
 	@PatchMapping("/{id}/move")
 	public List<CardResponse> move(@PathVariable Long id, @Valid @RequestBody CardMoveRequest request) {
 		return cardService.move(id, request);
+	}
+
+	/**
+	 * カードの削除。削除したら 204 を返す。存在しない id は 404 を返す。
+	 */
+	@DeleteMapping("/{id}")
+	public ResponseEntity<Void> delete(@PathVariable Long id) {
+		cardService.delete(id);
+		return ResponseEntity.noContent().build();
 	}
 
 }

@@ -64,3 +64,14 @@ export function moveLocally(
     )
   })
 }
+
+/** カードを除いた一覧を返す。サーバーと同じく、残ったカードの並び順を詰め直す */
+export function removeLocally(cards: Card[], id: number): Card[] {
+  return LISTS.flatMap((list) =>
+    cards
+      .filter((card) => card.listId === list.id && card.id !== id)
+      .map((card, position) =>
+        card.position === position ? card : { ...card, position },
+      ),
+  )
+}

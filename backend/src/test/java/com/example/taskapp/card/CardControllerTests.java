@@ -3,6 +3,7 @@ package com.example.taskapp.card;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.hasSize;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -431,6 +432,31 @@ class CardControllerTests {
 						{"listId": "doing"}
 						"""))
 				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void カードを削除すると204を返し残ったカードの並び順を詰め直す() throws Exception {
+		jdbcTemplate.update("INSERT INTO card (title, list_id, position) VALUES ('未着手の3枚目', 'todo', 2)");
+
+		// 未着手の1枚目（id=4）を削除
+		mockMvc.perform(delete("/api/cards/4"))
+				.andExpect(status().isNoContent());
+
+		mockMvc.perform(get("/api/cards/4"))
+				.andExpect(status().isNotFound());
+		assertThat(countCards()).isEqualTo(4);
+		assertThat(positions("todo")).containsExactly("3:0", "5:1");
+		// ほかのリストは変わらない
+		assertThat(positions("doing")).containsExactly("2:0");
+	}
+
+	@Test
+	void 存在しないカードを削除すると404を返す() throws Exception {
+		mockMvc.perform(delete("/api/cards/999"))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.message").value("カードが見つかりません（id=999）"));
+
+		assertThat(countCards()).isEqualTo(4);
 	}
 
 	/** リストのカードを並び順に「id:並び順」の形で返す */
