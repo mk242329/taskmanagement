@@ -16,6 +16,15 @@ export type Card = {
   updatedAt: string
 }
 
+/** カードを追加するときに送る内容（backend の CardCreateRequest と同じ形） */
+export type CardCreateInput = {
+  title: string
+  description: string
+  dueAt: string | null
+  strict: boolean
+  listId: ListId
+}
+
 /** API がエラーのときに返す形（backend の ApiExceptionHandler.ErrorResponse） */
 type ErrorResponse = {
   message: string
@@ -26,17 +35,41 @@ type ErrorResponse = {
 export async function fetchCards(): Promise<Card[]> {
   const res = await fetch('/api/cards')
   if (!res.ok) {
-    throw new Error(await readErrorMessage(res))
+    throw await readError(res)
   }
   return res.json()
 }
 
-async function readErrorMessage(res: Response): Promise<string> {
+/** カードを追加する。追加先のリストの一番下に入り、追加したカードが返る */
+export async function createCard(input: CardCreateInput): Promise<Card> {
+  const res = await fetch('/api/cards', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) {
+    throw await readError(res)
+  }
+  return res.json()
+}
+
+/** API がエラーを返したときの例外。入力の誤りは項目ごとのメッセージを errors に持つ */
+export class ApiError extends Error {
+  errors: Record<string, string>
+
+  constructor(message: string, errors: Record<string, string> = {}) {
+    super(message)
+    this.name = 'ApiError'
+    this.errors = errors
+  }
+}
+
+async function readError(res: Response): Promise<ApiError> {
   try {
     const body: ErrorResponse = await res.json()
-    return body.message
+    return new ApiError(body.message, body.errors)
   } catch {
     // バックエンドが止まっているときなど、JSON が返らない場合
-    return `サーバーとの通信に失敗しました（${res.status}）`
+    return new ApiError(`サーバーとの通信に失敗しました（${res.status}）`)
   }
 }

@@ -66,3 +66,23 @@ export function formatDue(dueAt: string): string {
   const mm = String(d.getMinutes()).padStart(2, '0')
   return `${d.getMonth() + 1}/${d.getDate()} ${hh}:${mm}`
 }
+
+// 入力のルール（docs/requirements/functional.md の「1. 共通のルール」）
+export const TITLE_MAX_LENGTH = 50
+export const DESCRIPTION_MAX_LENGTH = 500
+
+/** タイトルの誤りを返す。誤りがなければ null */
+export function validateTitle(title: string): string | null {
+  if (title.trim() === '') {
+    return 'タイトルを入力してください'
+  }
+  if (title.length > TITLE_MAX_LENGTH) {
+    return `タイトルは${TITLE_MAX_LENGTH}文字以内で入力してください`
+  }
+  return null
+}
+
+/** 日付と時刻の入力欄の値（ブラウザの時刻）を、API に送る ISO 文字列にする。空なら null */
+export function toDueAt(localValue: string): string | null {
+  return localValue === '' ? null : new Date(localValue).toISOString()
+}
