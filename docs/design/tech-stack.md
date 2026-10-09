@@ -3,6 +3,7 @@
 作成日：2026年10月5日
 更新日：2026年10月6日（バックエンドを Java + Spring Boot、フロントエンドを React、データベースを PostgreSQL に変更）
 更新日：2026年10月7日（フロントエンドのコードチェックを ESLint から oxlint に変更。`frontend/` を作成）
+更新日：2026年10月10日（各技術のバージョンを追記。ファイル構成を今のリポジトリに合わせる）
 
 アプリを作るのに使う技術と、ファイルの構成をまとめる。
 
@@ -20,37 +21,45 @@ Next.js は今回使わない。React は Vite で作る、ブラウザだけで
 
 ## 2. 使う技術
 
+バージョンは 2026年10月10日時点で実際に使っているもの。
+
+- バックエンドのライブラリのバージョンは、Spring Boot（`spring-boot-starter-parent`）がまとめて決める。`pom.xml` に個別のバージョンは書かない
+- フロントエンドのライブラリは `package.json` に `^` つきで範囲を書き、実際に入るバージョンは `package-lock.json` で固定する。表には `package-lock.json` のバージョンを書く
+- バージョンを上げたときは、この表も合わせて更新する
+
 ### 2.1 バックエンド
 
-| 項目 | 内容 |
-| --- | --- |
-| 言語 | Java 21（LTS） |
-| フレームワーク | Spring Boot 4 系 |
-| ビルドツール | Maven |
-| API | Spring Web（REST API） |
-| データベース操作 | Spring Data JPA（Hibernate） |
-| 入力チェック | Bean Validation（Hibernate Validator） |
-| テーブル作成・変更の管理 | Flyway |
-| テスト | JUnit 5、Mockito、Spring Boot Test、Testcontainers（テスト用の PostgreSQL を起動する） |
+| 項目 | 内容 | バージョン |
+| --- | --- | --- |
+| 言語 | Java（LTS） | 21 |
+| フレームワーク | Spring Boot | 4.1.1 |
+| ビルドツール | Maven（Maven Wrapper の `./mvnw` で動かす） | 3.9.16 |
+| API | Spring Web MVC（REST API） | Spring Boot に含まれるもの |
+| データベース操作 | Spring Data JPA（Hibernate） | Spring Data JPA 4.1.1、Hibernate 7.4.5 |
+| 入力チェック | Bean Validation（Hibernate Validator） | 9.1.3 |
+| テーブル作成・変更の管理 | Flyway | 12.4.0 |
+| PostgreSQL への接続 | PostgreSQL JDBC Driver | 42.7.13 |
+| テスト | JUnit、Mockito、Spring Boot Test、Testcontainers（テスト用の PostgreSQL を起動する） | JUnit 6.0.3、Mockito 5.23.0、Testcontainers 2.0.5 |
 
 ### 2.2 フロントエンド
 
-| 項目 | 内容 |
-| --- | --- |
-| 言語 | TypeScript |
-| ライブラリ | React 19 |
-| ビルドツール・開発サーバー | Vite |
-| ドラッグ＆ドロップ | [dnd-kit](https://dndkit.com/) |
-| サーバーとの通信 | ブラウザ標準の fetch |
-| 通知 | ブラウザの Notification API |
-| テスト | Vitest、React Testing Library |
-| コードの整形・チェック | oxlint（Vite のテンプレートに含まれるもの）、Prettier |
+| 項目 | 内容 | バージョン |
+| --- | --- | --- |
+| 言語 | TypeScript | 7.0.2 |
+| ライブラリ | React（React DOM も同じ） | 19.3.0 |
+| ビルドツール・開発サーバー | Vite（React 用プラグイン `@vitejs/plugin-react`） | Vite 8.3.4、プラグイン 6.1.2 |
+| ドラッグ＆ドロップ | [dnd-kit](https://dndkit.com/) | 未導入（カードの移動を作るときに入れる） |
+| サーバーとの通信 | ブラウザ標準の fetch | ― |
+| 通知 | ブラウザの Notification API | ― |
+| テスト | Vitest、React Testing Library（jsdom 上で動かす） | Vitest 5.0.3、React Testing Library 16.3.3、jsdom 30.1.2 |
+| コードのチェック | oxlint | 1.87.0 |
+| コードの整形 | Prettier | 3.9.9 |
 
 ### 2.3 データベース
 
 | 項目 | 内容 |
 | --- | --- |
-| データベース | PostgreSQL 17 |
+| データベース | PostgreSQL 17（Docker イメージ `postgres:17`。2026年10月10日時点で 17.11） |
 | 起動方法（開発時） | Docker Compose でコンテナとして起動する |
 | サービス名・データベース名・ユーザー名 | サービス名 `db`、データベース名 `taskapp`、ユーザー名 `taskapp`（開発用。パスワードは `docker-compose.yml` と `application.yml` に書く） |
 | ポート | `5432` |
@@ -60,6 +69,9 @@ Next.js は今回使わない。React は Vite で作る、ブラウザだけで
 | 項目 | 内容 |
 | --- | --- |
 | エディタ | VSCode（Java と React の拡張機能を入れる） |
+| Node.js・npm | Node.js 24（24.21.0）、npm 11（11.19.0）。フロントエンドの依存関係の追加・開発サーバーの起動に使う |
+| Docker | Colima 0.10.3、Docker 29.8.2、Docker Compose 5.6.0（Docker Desktop は使わない） |
+| 開発サーバーの起動 | `scripts/dev-start.sh`・`scripts/dev-stop.sh` で、PostgreSQL・バックエンド・フロントエンドをまとめて起動・停止する |
 | 動作確認 | バックエンドを `http://localhost:8080`、フロントエンドを Vite の開発サーバー `http://localhost:5173` で起動して開く |
 | API の呼び出し先 | Vite のプロキシ設定で `/api` をバックエンドに転送する（CORS の設定を不要にするため） |
 
@@ -71,31 +83,40 @@ Next.js は今回使わない。React は Vite で作る、ブラウザだけで
 
 ```text
 taskmanagement/
+├── README.md
+├── CLAUDE.md                    … Claude Code が守る開発ルール
 ├── docker-compose.yml           … PostgreSQL の起動設定
+├── index.html                   … HTML + CSS + JavaScript のプロトタイプ
+├── style.css
+├── script.js
+├── scripts/                     … 開発サーバーの起動・停止スクリプト
+│   ├── dev-start.sh
+│   ├── dev-stop.sh
+│   └── dev-common.sh
 ├── backend/                     … Spring Boot のプロジェクト
 │   ├── pom.xml
+│   ├── mvnw                     … Maven Wrapper
+│   ├── seed/sample-cards.sql    … 動作確認用のサンプルデータ
 │   └── src/
 │       ├── main/
-│       │   ├── java/…/
-│       │   │   ├── controller/  … API の入口
-│       │   │   ├── service/     … 処理のまとまり（優先度の判定など）
-│       │   │   ├── repository/  … データベースの読み書き
-│       │   │   └── entity/      … テーブルに対応するクラス
+│       │   ├── java/com/example/taskapp/
+│       │   │   ├── card/        … カードとリストの API（Controller・Service・Repository・Entity）
+│       │   │   └── common/      … エラー時のレスポンスなど、機能をまたぐ処理
 │       │   └── resources/
 │       │       ├── application.yml
 │       │       └── db/migration/ … Flyway のテーブル作成 SQL
-│       └── test/
+│       └── test/                … API のテスト（Testcontainers で PostgreSQL を起動する）
 ├── frontend/                    … React のプロジェクト
 │   ├── package.json
-│   ├── vite.config.ts
+│   ├── vite.config.ts           … 開発サーバー（5173）と /api の転送、Vitest の設定
 │   └── src/
-│       ├── components/          … 画面の部品（リスト、カード、ダイアログ）
 │       ├── api/                 … サーバーとの通信
+│       ├── components/          … 画面の部品（ボード、リスト、カード）
+│       ├── domain/              … 画面に依存しない処理（優先度・期限切れの判定など）
+│       ├── test/                … テスト用のデータ
 │       └── App.tsx
-├── prototype/                   … これまでの HTML + CSS + JavaScript のプロトタイプ
-│   ├── index.html
-│   ├── style.css
-│   └── script.js
+├── .claude/                     … Claude Code の設定（フック・スキル）
+├── .github/                     … イシュー・PR のテンプレート
 └── docs/
     ├── requirements.md          … 要件定義書（全体のまとめ）
     ├── requirements/
@@ -111,4 +132,4 @@ taskmanagement/
     └── test-spec.md             … テスト仕様書
 ```
 
-`backend/` と `docker-compose.yml` は作成済み（Spring Initializr で作った初期状態）。`frontend/` は作成済み（Vite の react-ts テンプレートで作った初期状態）。`prototype/` はこれから作る（今あるプロトタイプのファイルは `prototype/` に移す予定）。
+バックエンドは、層（controller・service など）ごとではなく機能（`card` など）ごとにパッケージを分ける。プロトタイプ（`index.html`・`style.css`・`script.js`）は今はリポジトリの直下にあり、`prototype/` に移す予定。
