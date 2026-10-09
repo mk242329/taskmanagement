@@ -42,11 +42,11 @@ class CardControllerTests {
 		jdbcTemplate.execute("TRUNCATE card RESTART IDENTITY");
 		// わざと表示順と違う順番で入れる
 		jdbcTemplate.update("""
-				INSERT INTO card (title, description, due_at, strict, list_id, position, notified) VALUES
-				    ('完了したカード',   '',       NULL,                         false, 'done',  0, true),
-				    ('作業中のカード',   '',       NULL,                         false, 'doing', 0, false),
-				    ('未着手の2枚目',    '',       NULL,                         false, 'todo',  1, false),
-				    ('未着手の1枚目',    '説明文', '2026-10-08 09:00:00+09',      true,  'todo',  0, false)
+				INSERT INTO card (title, description, due_at, strict, list_id, position) VALUES
+				    ('完了したカード',   '',       NULL,                         false, 'done',  0),
+				    ('作業中のカード',   '',       NULL,                         false, 'doing', 0),
+				    ('未着手の2枚目',    '',       NULL,                         false, 'todo',  1),
+				    ('未着手の1枚目',    '説明文', '2026-10-08 09:00:00+09',      true,  'todo',  0)
 				""");
 	}
 
@@ -84,7 +84,6 @@ class CardControllerTests {
 				.andExpect(jsonPath("$.dueAt").isNotEmpty())
 				.andExpect(jsonPath("$.strict").value(true))
 				.andExpect(jsonPath("$.listId").value("todo"))
-				.andExpect(jsonPath("$.notified").value(false))
 				.andExpect(jsonPath("$.createdAt").isNotEmpty())
 				.andExpect(jsonPath("$.updatedAt").isNotEmpty());
 	}
@@ -127,7 +126,6 @@ class CardControllerTests {
 				.andExpect(jsonPath("$.strict").value(true))
 				.andExpect(jsonPath("$.listId").value("todo"))
 				.andExpect(jsonPath("$.position").value(2))
-				.andExpect(jsonPath("$.notified").value(false))
 				.andExpect(jsonPath("$.createdAt").value(endsWith("Z")))
 				.andExpect(jsonPath("$.updatedAt").value(endsWith("Z")));
 
@@ -283,28 +281,6 @@ class CardControllerTests {
 				.andExpect(jsonPath("$.description").value(""))
 				.andExpect(jsonPath("$.dueAt").isEmpty())
 				.andExpect(jsonPath("$.strict").value(false));
-	}
-
-	@Test
-	void 期限を変えると通知済みを戻し_同じ時刻なら戻さない() throws Exception {
-		jdbcTemplate.update("UPDATE card SET notified = true WHERE id = 4");
-
-		// 時差の書き方が違うだけで同じ時刻
-		mockMvc.perform(put("/api/cards/4")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-						{"title": "未着手の1枚目", "dueAt": "2026-10-08T00:00:00Z"}
-						"""))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.notified").value(true));
-
-		mockMvc.perform(put("/api/cards/4")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content("""
-						{"title": "未着手の1枚目", "dueAt": "2026-10-09T00:00:00Z"}
-						"""))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.notified").value(false));
 	}
 
 	@Test
