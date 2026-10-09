@@ -74,12 +74,14 @@ flowchart LR
 
 | 区分 | 技術 |
 | --- | --- |
-| バックエンド | Java 21、Spring Boot 4.1.1、Spring Data JPA（Hibernate 7.4）、Flyway 12.4、Maven 3.9 |
-| フロントエンド | TypeScript 7.0、React 19.3、Vite 8.3、dnd-kit（未導入） |
-| データベース | PostgreSQL 17（Docker Compose で起動） |
+| バックエンド | Java 21（OpenJDK 21.0.12）、Spring Boot 4.1.1、Spring Data JPA 4.1.1（Hibernate 7.4.5）、Flyway 12.4.0 |
+| バックエンドのビルド | Maven 3.9.16（Maven Wrapper 3.3.4 の `./mvnw` で動かす。Gradle は使わない） |
+| フロントエンド | TypeScript 7.0.2、React 19.3.0、Vite 8.3.4、dnd-kit（未導入） |
+| フロントエンドのパッケージ管理 | npm 11.19.0（Node.js 24.21.0） |
+| データベース | PostgreSQL 17.11（Docker イメージ `postgres:17`、Docker Compose で起動） |
 | テスト | JUnit 6、Testcontainers 2.0（バックエンド）／Vitest 5.0、React Testing Library 16.3（フロントエンド） |
 | コードチェック | oxlint 1.87、Prettier 3.9 |
-| 開発環境 | Node.js 24、Colima 0.10（Docker 29、Docker Compose 5） |
+| 開発環境 | Colima 0.10.3、Docker 29.8.2、Docker Compose 5.6.0、Git 2.39.5、GitHub CLI 2.101.0 |
 
 Next.js は使わず、React は Vite で作るブラウザだけで動く画面（SPA）にしています。ライブラリごとの詳しいバージョンは [技術スタック](docs/design/tech-stack.md) を参照してください。
 
@@ -125,8 +127,8 @@ taskmanagement/
 
 | ツール | 用途 |
 | --- | --- |
-| Java 21 | バックエンドのビルド・起動（Maven は `backend/mvnw` が自動で用意する） |
-| Node.js 24・npm | フロントエンドのビルド・起動 |
+| Java 21 | バックエンドのビルド・起動（Maven 3.9.16 は `backend/mvnw` が自動で用意する） |
+| Node.js 24・npm 11 | フロントエンドの依存関係の追加・ビルド・起動 |
 | Colima・Docker・Docker Compose | PostgreSQL の起動、バックエンドのテスト |
 | GitHub CLI（`gh`） | イシュー・PR の作成 |
 

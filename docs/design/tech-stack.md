@@ -32,8 +32,10 @@ Next.js は今回使わない。React は Vite で作る、ブラウザだけで
 | 項目 | 内容 | バージョン |
 | --- | --- | --- |
 | 言語 | Java（LTS） | 21 |
+| JDK | OpenJDK（Homebrew で入れたもの） | 21.0.12 |
 | フレームワーク | Spring Boot | 4.1.1 |
-| ビルドツール | Maven（Maven Wrapper の `./mvnw` で動かす） | 3.9.16 |
+| ビルドツール | Maven（Gradle は使わない） | 3.9.16 |
+| ビルドツールの起動 | Maven Wrapper（`./mvnw`。決まったバージョンの Maven を自動で取ってきて動かすため、Maven を別に入れる必要はない） | 3.3.4 |
 | API | Spring Web MVC（REST API） | Spring Boot に含まれるもの |
 | データベース操作 | Spring Data JPA（Hibernate） | Spring Data JPA 4.1.1、Hibernate 7.4.5 |
 | 入力チェック | Bean Validation（Hibernate Validator） | 9.1.3 |
@@ -45,6 +47,8 @@ Next.js は今回使わない。React は Vite で作る、ブラウザだけで
 
 | 項目 | 内容 | バージョン |
 | --- | --- | --- |
+| 実行環境 | Node.js | 24.21.0 |
+| パッケージ管理 | npm（依存関係は `package-lock.json` で固定する） | 11.19.0 |
 | 言語 | TypeScript | 7.0.2 |
 | ライブラリ | React（React DOM も同じ） | 19.3.0 |
 | ビルドツール・開発サーバー | Vite（React 用プラグイン `@vitejs/plugin-react`） | Vite 8.3.4、プラグイン 6.1.2 |
@@ -57,23 +61,29 @@ Next.js は今回使わない。React は Vite で作る、ブラウザだけで
 
 ### 2.3 データベース
 
-| 項目 | 内容 |
-| --- | --- |
-| データベース | PostgreSQL 17（Docker イメージ `postgres:17`。2026年10月10日時点で 17.11） |
-| 起動方法（開発時） | Docker Compose でコンテナとして起動する |
-| サービス名・データベース名・ユーザー名 | サービス名 `db`、データベース名 `taskapp`、ユーザー名 `taskapp`（開発用。パスワードは `docker-compose.yml` と `application.yml` に書く） |
-| ポート | `5432` |
+| 項目 | 内容 | バージョン |
+| --- | --- | --- |
+| データベース | PostgreSQL | 17.11 |
+| Docker イメージ | `postgres:17`（17 系の最新を使う。イメージを取り直すと 17 系の中で上がることがある） | `postgres:17` |
+| 起動方法（開発時） | Docker Compose でコンテナとして起動する | Docker Compose 5.6.0 |
+| サービス名・データベース名・ユーザー名 | サービス名 `db`、データベース名 `taskapp`、ユーザー名 `taskapp`（開発用。パスワードは `docker-compose.yml` と `application.yml` に書く） | ― |
+| ポート | `5432` | ― |
 
 ### 2.4 開発環境
 
-| 項目 | 内容 |
-| --- | --- |
-| エディタ | VSCode（Java と React の拡張機能を入れる） |
-| Node.js・npm | Node.js 24（24.21.0）、npm 11（11.19.0）。フロントエンドの依存関係の追加・開発サーバーの起動に使う |
-| Docker | Colima 0.10.3、Docker 29.8.2、Docker Compose 5.6.0（Docker Desktop は使わない） |
-| 開発サーバーの起動 | `scripts/dev-start.sh`・`scripts/dev-stop.sh` で、PostgreSQL・バックエンド・フロントエンドをまとめて起動・停止する |
-| 動作確認 | バックエンドを `http://localhost:8080`、フロントエンドを Vite の開発サーバー `http://localhost:5173` で起動して開く |
-| API の呼び出し先 | Vite のプロキシ設定で `/api` をバックエンドに転送する（CORS の設定を不要にするため） |
+| 項目 | 内容 | バージョン |
+| --- | --- | --- |
+| エディタ | VSCode（Java と React の拡張機能を入れる） | ― |
+| Java | OpenJDK（バックエンドのビルド・起動） | 21.0.12 |
+| Node.js・npm | フロントエンドの依存関係の追加・開発サーバーの起動 | Node.js 24.21.0、npm 11.19.0 |
+| Docker | Colima（Docker Desktop は使わない） | 0.10.3 |
+| | Docker | 29.8.2 |
+| | Docker Compose | 5.6.0 |
+| バージョン管理 | Git | 2.39.5 |
+| GitHub の操作 | GitHub CLI（`gh`。イシュー・PR の作成） | 2.101.0 |
+| 開発サーバーの起動 | `scripts/dev-start.sh`・`scripts/dev-stop.sh` で、PostgreSQL・バックエンド・フロントエンドをまとめて起動・停止する | ― |
+| 動作確認 | バックエンドを `http://localhost:8080`、フロントエンドを Vite の開発サーバー `http://localhost:5173` で起動して開く | ― |
+| API の呼び出し先 | Vite のプロキシ設定で `/api` をバックエンドに転送する（CORS の設定を不要にするため） | ― |
 
 ブラウザ通知は `http://localhost` で開いた状態なら動く。
 
