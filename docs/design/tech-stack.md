@@ -52,7 +52,7 @@ Next.js は今回使わない。React は Vite で作る、ブラウザだけで
 | 言語 | TypeScript | 7.0.2 |
 | ライブラリ | React（React DOM も同じ） | 19.3.0 |
 | ビルドツール・開発サーバー | Vite（React 用プラグイン `@vitejs/plugin-react`） | Vite 8.3.4、プラグイン 6.1.2 |
-| ドラッグ＆ドロップ | [dnd-kit](https://dndkit.com/) | 未導入（カードの移動を作るときに入れる） |
+| ドラッグ＆ドロップ | [dnd-kit](https://dndkit.com/)（`@dnd-kit/core`・`@dnd-kit/sortable`・`@dnd-kit/utilities`） | core 6.3.1、sortable 10.0.0、utilities 3.2.2 |
 | サーバーとの通信 | ブラウザ標準の fetch | ― |
 | 通知 | ブラウザの Notification API | ― |
 | テスト | Vitest、React Testing Library（jsdom 上で動かす） | Vitest 5.0.3、React Testing Library 16.3.3、jsdom 30.1.2 |
