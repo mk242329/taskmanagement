@@ -263,6 +263,17 @@ npm run build             # 型チェックとビルド
 
 アプリ全体の確認手順は [テスト仕様書](docs/test-spec.md) にまとめています。
 
+### CI（GitHub Actions）
+
+PR を作ったときと main に push したときに、[`.github/workflows/ci.yml`](.github/workflows/ci.yml) が上のチェックを自動で動かします。
+
+| ジョブ | 動かすもの |
+| --- | --- |
+| フロントエンド | oxlint、Prettier のチェック、Vitest、型チェックとビルド |
+| バックエンド | `./mvnw test`（Testcontainers は GitHub Actions の Docker を使う） |
+
+PR は、両方のジョブが成功してからマージします。
+
 ## 開発の進め方
 
 どんなに小さな変更でも、次の流れで進めます。詳しくは [CLAUDE.md](CLAUDE.md) を参照してください。
