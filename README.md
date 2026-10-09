@@ -1,60 +1,140 @@
 # taskmanagement
-Task Management Project
 
-Trello風のタスク管理アプリです。スクールの課題として作成しています。
+Trello 風のタスク管理アプリです。「未着手」「作業中」「完了」の 3 つのリストでカードを管理し、期限が来たらブラウザ通知でお知らせします。
 
-## 要件
+スクールの課題として、要件定義 → 設計 → 実装 → テストというシステム開発の流れを一通り経験するために作っています。完成後は、自分の仕事や勉強のタスク管理に実際に使います。
 
-詳細は [要件定義書](docs/requirements.md)、設計書（[docs/design/](docs/design/)）、[テスト仕様書](docs/test-spec.md) を参照してください。
+## 目次
+
+- [アプリの概要](#アプリの概要)
+- [技術スタック](#技術スタック)
+- [ドキュメント](#ドキュメント)
+- [リポジトリの構成](#リポジトリの構成)
+- [開発環境の準備](#開発環境の準備)
+- [起動と停止](#起動と停止)
+- [API](#api)
+- [テスト・コードチェック](#テストコードチェック)
+- [開発の進め方](#開発の進め方)
+- [実装状況](#実装状況)
+
+## アプリの概要
 
 ### 前提
-- 利用者：自分ひとり（ログイン・共有機能は不要）
-- 用途：仕事のタスクや勉強の進み具合の管理
 
-### リスト
-- 「未着手」「作業中」「完了」の3つ
-
-### カードの項目
 | 項目 | 内容 |
-|---|---|
-| タイトル | 必須 |
-| 説明文 | 任意 |
-| 優先度 | 高・中・低 の3段階。期限と時間厳守から自動で決まる |
-| 時間厳守 | 遅れてはいけないタスクに付ける。優先度が1段階上がる |
+| --- | --- |
+| 利用者 | 自分ひとり（ログイン・共有機能は不要） |
+| 用途 | 仕事のタスクや勉強の進み具合の管理 |
+| 動作環境 | パソコン版 Chrome。自分のパソコンの中だけで動かす |
+
+### リストとカード
+
+リストは「未着手」「作業中」「完了」の 3 つで固定です。カードには次の項目があります。
+
+| 項目 | 内容 |
+| --- | --- |
+| タイトル | 必須（1〜50 文字） |
+| 説明文 | 任意（500 文字まで） |
 | 期限 | 日付と時刻 |
+| 時間厳守 | 遅れてはいけないタスクに付ける。優先度が 1 段階上がる |
+| 優先度 | 高・中・低の 3 段階。期限の近さと時間厳守から自動で決まる |
 
-### 機能
-1. カードを追加する
-2. カードを削除する
-3. カードをリスト間で移動する・リスト内で並び替える（カードのチェックボックスにチェックを付けると、次のリストへ自動で移る）
-4. カードを編集する（タイトル・説明文・期限・時間厳守）
-5. ブラウザを閉じても内容が残る（PostgreSQL に保存）
-6. リマインド機能：期限の時刻にブラウザ通知を表示する
-   - アプリのタブを開いている間のみ通知される（別のタブや別のアプリを使用中でも届く）
-7. 期限を過ぎた未完了のカードを赤色で目立たせる
-8. 優先度を、期限の近さと時間厳守かどうかから自動で決める
+### 主な機能
 
-### 使う技術
-| 区分 | 技術 |
-|---|---|
-| バックエンド | Java 21、Spring Boot、Spring Data JPA、Flyway、Maven |
-| フロントエンド | React、TypeScript、Vite、dnd-kit |
-| データベース | PostgreSQL（Docker Compose で起動） |
+| No. | 機能 | 内容 |
+| --- | --- | --- |
+| F-01 | ボード表示 | 3 つのリストを横に並べて表示する |
+| F-02 | カード追加 | 各リストにカードを追加する |
+| F-03 | カード編集 | タイトル・説明文・期限・時間厳守を変更する |
+| F-04 | カード削除 | 確認を表示してからカードを削除する |
+| F-05 | リスト間の移動 | ドラッグ＆ドロップでカードを別のリストへ移す |
+| F-06 | リスト内の並び替え | ドラッグ＆ドロップで同じリスト内の順番を入れ替える |
+| F-07 | データ保存 | 変更のたびに PostgreSQL へ自動で保存する。ブラウザを閉じても残る |
+| F-08 | リマインド通知 | 期限の時刻にブラウザ通知を表示する（アプリのタブを開いている間だけ） |
+| F-09 | 期限切れの表示 | 期限を過ぎた未完了のカードを赤色で目立たせる |
+| F-10 | 優先度の自動判定 | 期限の近さと時間厳守から優先度を自動で決める |
+| F-11 | チェックでの移動 | チェックを付けると、未着手 → 作業中 → 完了へ移す |
 
-Next.js は使いません。詳細は [技術スタック](docs/design/tech-stack.md) を参照してください。
+各機能のルールは [機能要件](docs/requirements/functional.md) を参照してください。
 
-### 対象外（今回は作らない）
+### 今回は作らないもの
+
 - 優先度・期限での自動並べ替え
-- ログイン・他の人との共有
-- 担当者の割り当て
-- 複数ボード
+- ログイン・他の人との共有、担当者の割り当て
+- 複数ボード、リストの追加・名前変更
 - ブラウザを閉じている間の通知
 
-## 開発環境の起動
+## 技術スタック
+
+```mermaid
+flowchart LR
+    Browser[ブラウザ<br>React] -- "REST API（JSON）" --> API[サーバー<br>Spring Boot]
+    API -- "JPA" --> DB[(PostgreSQL)]
+```
+
+| 区分 | 技術 |
+| --- | --- |
+| バックエンド | Java 21（OpenJDK 21.0.12）、Spring Boot 4.1.1、Spring Data JPA 4.1.1（Hibernate 7.4.5）、Flyway 12.4.0 |
+| バックエンドのビルド | Maven 3.9.16（Maven Wrapper 3.3.4 の `./mvnw` で動かす。Gradle は使わない） |
+| フロントエンド | TypeScript 7.0.2、React 19.3.0、Vite 8.3.4、dnd-kit（未導入） |
+| フロントエンドのパッケージ管理 | npm 11.19.0（Node.js 24.21.0） |
+| データベース | PostgreSQL 17.11（Docker イメージ `postgres:17`、Docker Compose で起動） |
+| テスト | JUnit 6、Testcontainers 2.0（バックエンド）／Vitest 5.0、React Testing Library 16.3（フロントエンド） |
+| コードチェック | oxlint 1.87、Prettier 3.9 |
+| 開発環境 | Colima 0.10.3、Docker 29.8.2、Docker Compose 5.6.0、Git 2.39.5、GitHub CLI 2.101.0 |
+
+Next.js は使わず、React は Vite で作るブラウザだけで動く画面（SPA）にしています。ライブラリごとの詳しいバージョンは [技術スタック](docs/design/tech-stack.md) を参照してください。
+
+## ドキュメント
+
+入口は [要件定義書](docs/requirements.md) です。
+
+| 種類 | ドキュメント | 内容 |
+| --- | --- | --- |
+| 要件 | [要件定義書](docs/requirements.md) | 背景・目的・スコープ・受け入れ基準・決定事項・未決事項 |
+| | [機能一覧](docs/requirements/features.md) | 機能 F-01〜F-11 と、設計・テストとの対応表 |
+| | [機能要件](docs/requirements/functional.md) | 各機能が満たすべきルール（入力の文字数、優先度の決め方など） |
+| | [画面要件](docs/requirements/screens.md) | 画面 SC-01〜SC-05 で表示する情報とできる操作 |
+| | [非機能要件](docs/requirements/non-functional.md) | 対応ブラウザ、応答時間、データの保存先など |
+| 設計 | [画面設計](docs/design/screen-design.md) | 画面遷移図と画面レイアウト |
+| | [データベース設計](docs/design/database.md) | ER 図とテーブル定義 |
+| | [データフロー](docs/design/data-flow.md) | データの流れ、API 一覧、通知・期限切れの判定条件 |
+| | [技術スタック](docs/design/tech-stack.md) | 使う技術とバージョン、開発環境、ファイル構成 |
+| テスト | [テスト仕様書](docs/test-spec.md) | 機能と非機能要件を確認する手順 |
+| 開発ルール | [CLAUDE.md](CLAUDE.md) | イシュー・ブランチ・PR の進め方、開発サーバーのポート |
+
+## リポジトリの構成
+
+```text
+taskmanagement/
+├── backend/             … Spring Boot（API・データベースの読み書き）
+├── frontend/            … React + TypeScript + Vite（画面）
+├── docs/                … 要件定義・設計・テストのドキュメント
+├── scripts/             … 開発サーバーの起動・停止スクリプト
+├── docker-compose.yml   … PostgreSQL の起動設定
+├── index.html ほか       … HTML + CSS + JavaScript のプロトタイプ
+├── .claude/             … Claude Code のフック・スキル
+└── .github/             … イシュー・PR のテンプレート
+```
+
+詳しくは [技術スタックの「ファイル構成」](docs/design/tech-stack.md#3-ファイル構成) を参照してください。
+
+## 開発環境の準備
+
+初回だけ行います。
+
+### 必要なもの
+
+| ツール | 用途 |
+| --- | --- |
+| Java 21 | バックエンドのビルド・起動（Maven 3.9.16 は `backend/mvnw` が自動で用意する） |
+| Node.js 24・npm 11 | フロントエンドの依存関係の追加・ビルド・起動 |
+| Colima・Docker・Docker Compose | PostgreSQL の起動、バックエンドのテスト |
+| GitHub CLI（`gh`） | イシュー・PR の作成 |
+
+### Docker（Colima）
 
 Docker は Colima（Docker Desktop を使わずにコマンドだけで動かせる Docker）を使います。
-
-### 初回だけ
 
 ```sh
 brew install colima docker docker-compose
@@ -66,16 +146,35 @@ brew install colima docker docker-compose
 "cliPluginsExtraDirs": ["/opt/homebrew/lib/docker/cli-plugins"]
 ```
 
-### 毎回
+### フロントエンドの依存関係
 
-次の 1 コマンドで、DB・バックエンド（http://localhost:8080）・フロントエンド（http://localhost:5173）をまとめて起動できます。ポートがほかのプロセスに使われているときは、そのプロセスを止めてから決められたポートで起動します。
+```sh
+cd frontend
+npm install               # 初回と、package.json が変わったときだけ
+```
+
+## 起動と停止
+
+### まとめて起動する（おすすめ）
+
+次の 1 コマンドで、DB・バックエンド・フロントエンドをまとめて起動できます。起動したら http://localhost:5173 を開きます。
 
 ```sh
 scripts/dev-start.sh      # すべて起動（backend / frontend を付けるとそれだけ）
 scripts/dev-stop.sh       # バックエンドとフロントエンドを止める
 ```
 
-ログは `.dev/backend.log`・`.dev/frontend.log` に出ます。手動で起動するときは次のとおりです。
+| 対象 | URL・ポート |
+| --- | --- |
+| フロントエンド | http://localhost:5173 |
+| バックエンド | http://localhost:8080 |
+| PostgreSQL | `localhost:5432` |
+
+- ポートがほかのプロセスに使われているときは、そのプロセスを止めてから決められたポートで起動します。フロントエンドは `/api` を 8080 に転送しているため、別のポートでは動かしません
+- ログは `.dev/backend.log`・`.dev/frontend.log` に出ます
+- テーブルはバックエンドの起動時に Flyway が `backend/src/main/resources/db/migration/` の SQL から自動で作ります
+
+### 手動で起動する
 
 ```sh
 colima start              # Docker を起動（Mac を再起動したら毎回必要）
@@ -83,17 +182,13 @@ docker compose up -d      # PostgreSQL を起動
 cd backend && ./mvnw spring-boot:run   # バックエンドを起動（http://localhost:8080）
 ```
 
-別のターミナルでフロントエンドを起動し、http://localhost:5173 を開きます。`/api` へのリクエストは Vite がバックエンドに転送します。
+別のターミナルでフロントエンドを起動します。
 
 ```sh
-cd frontend
-npm install               # 初回と、package.json が変わったときだけ
-npm run dev               # フロントエンドを起動（http://localhost:5173）
+cd frontend && npm run dev   # フロントエンドを起動（http://localhost:5173）
 ```
 
-テーブルはバックエンドの起動時に Flyway が `backend/src/main/resources/db/migration/` の SQL から自動で作ります。
-
-### テストデータの投入と API の確認
+### テストデータの投入
 
 バックエンドを一度起動してテーブルができたあとに、サンプルのカードを投入できます（既存のカードは消えます）。
 
@@ -101,23 +196,38 @@ npm run dev               # フロントエンドを起動（http://localhost:51
 docker compose exec -T db psql -U taskapp -d taskapp < backend/seed/sample-cards.sql
 ```
 
-バックエンドを起動した状態で、API からカードを取得できます。
+### データベースを止める
 
 ```sh
-curl http://localhost:8080/api/cards      # カード一覧（リストの表示順 → リスト内の並び順）
-curl http://localhost:8080/api/cards/1    # カード 1 件（存在しない id は 404）
+docker compose down       # 止める（データは残る）
+docker compose down -v    # データも消す（元に戻せないので注意）
+```
 
-# カードの追加（title だけ必須。listId を省略すると未着手の一番下に入る）
+## API
+
+URL はすべて `/api` から始まり、JSON でやり取りします。全体の一覧は [データフロー](docs/design/data-flow.md#3-api-一覧) を参照してください。今使える API は次のとおりです。
+
+| 処理 | メソッド | URL |
+| --- | --- | --- |
+| カード一覧の取得（リストの表示順 → リスト内の並び順） | GET | `/api/cards` |
+| カード 1 件の取得（存在しない id は 404） | GET | `/api/cards/{id}` |
+| カードの追加（`title` だけ必須。`listId` を省略すると未着手の一番下に入る） | POST | `/api/cards` |
+
+```sh
+curl http://localhost:8080/api/cards
+curl http://localhost:8080/api/cards/1
+
 curl -X POST http://localhost:8080/api/cards \
   -H 'Content-Type: application/json' \
   -d '{"title": "課題A", "description": "第3章", "dueAt": "2026-10-08T18:00:00+09:00", "strict": true, "listId": "todo"}'
 ```
 
-日時は UTC の ISO 8601 形式（例：`2026-10-09T15:47:41Z`）で返します。
+- 日時は UTC の ISO 8601 形式（例：`2026-10-09T15:47:41Z`）で返します
+- 入力に誤りがあるときは 400 を返し、`{"message": "入力内容に誤りがあります", "errors": {"title": "タイトルを入力してください"}}` の形で項目ごとのエラーを返します
 
-止めるときは `docker compose down`（データは残る）。データも消すときは `docker compose down -v`。
+## テスト・コードチェック
 
-### テスト
+### バックエンド
 
 テストは Testcontainers で使い捨ての PostgreSQL を起動します。Colima の場合は次の環境変数が必要です。
 
@@ -127,7 +237,9 @@ export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
 cd backend && ./mvnw test
 ```
 
-フロントエンドのテスト・チェックは `frontend/` で次を実行します。
+### フロントエンド
+
+`frontend/` で次を実行します。
 
 ```sh
 npm test                  # Vitest（監視モード。1回だけなら npm test -- --run）
@@ -135,3 +247,35 @@ npm run lint              # oxlint
 npm run format            # Prettier で整形
 npm run build             # 型チェックとビルド
 ```
+
+アプリ全体の確認手順は [テスト仕様書](docs/test-spec.md) にまとめています。
+
+## 開発の進め方
+
+どんなに小さな変更でも、次の流れで進めます。詳しくは [CLAUDE.md](CLAUDE.md) を参照してください。
+
+1. イシューを作る（`.github/ISSUE_TEMPLATE/` のテンプレートを使う）
+2. 最新の main からブランチを切る：`<種別>/<イシュー番号>-<英語の短い説明>`（例：`feature/12-card-drag-and-drop`）
+3. コミットする（メッセージは日本語で「何をしたか」を 1 行で）
+4. プッシュして PR を作る（本文に `Closes #<イシュー番号>`）
+5. 確認してから Squash and merge する
+
+main ブランチへの直接コミット・プッシュは、GitHub のブランチ保護と Claude Code のフックで禁止しています。
+
+## 実装状況
+
+2026年10月10日時点の状況です。
+
+| No. | 機能 | 状況 |
+| --- | --- | --- |
+| F-01 | ボード表示 | ✅ API から取得したカードを 3 つのリストに表示する |
+| F-02 | カード追加 | 🚧 API のみ（画面からの追加はこれから） |
+| F-03 | カード編集 | ⬜ 未着手 |
+| F-04 | カード削除 | ⬜ 未着手 |
+| F-05 | リスト間の移動 | ⬜ 未着手 |
+| F-06 | リスト内の並び替え | ⬜ 未着手 |
+| F-07 | データ保存 | 🚧 PostgreSQL への保存と読み込みは動く（編集・削除・移動はこれから） |
+| F-08 | リマインド通知 | ⬜ 未着手 |
+| F-09 | 期限切れの表示 | ✅ 期限を過ぎた未完了のカードを赤色で表示する |
+| F-10 | 優先度の自動判定 | ✅ 画面で優先度を判定して表示する |
+| F-11 | チェックでの移動 | ⬜ 未着手（チェックボックスの表示のみ） |
