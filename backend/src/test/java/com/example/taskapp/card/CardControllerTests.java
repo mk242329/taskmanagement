@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -227,6 +228,93 @@ class CardControllerTests {
 						"""))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value("送られた内容を読み取れません"));
+	}
+
+	@Test
+	void カードを編集すると200と編集後のカードを返しリストと並び順は変えない() throws Exception {
+		mockMvc.perform(put("/api/cards/3")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"title": "編集後", "description": "説明", "dueAt": "2026-10-20T18:00:00+09:00", "strict": true}
+						"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.id").value(3))
+				.andExpect(jsonPath("$.title").value("編集後"))
+				.andExpect(jsonPath("$.description").value("説明"))
+				.andExpect(jsonPath("$.dueAt").value("2026-10-20T09:00:00Z"))
+				.andExpect(jsonPath("$.strict").value(true))
+				.andExpect(jsonPath("$.listId").value("todo"))
+				.andExpect(jsonPath("$.position").value(1));
+
+		// 保存されていて、一覧の並びも変わらない
+		mockMvc.perform(get("/api/cards"))
+				.andExpect(jsonPath("$[1].id").value(3))
+				.andExpect(jsonPath("$[1].title").value("編集後"));
+	}
+
+	@Test
+	void 編集で省略した項目は空_期限なし_時間厳守なしになる() throws Exception {
+		mockMvc.perform(put("/api/cards/4")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"title": "タイトルだけ"}
+						"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.description").value(""))
+				.andExpect(jsonPath("$.dueAt").isEmpty())
+				.andExpect(jsonPath("$.strict").value(false));
+	}
+
+	@Test
+	void 期限を変えると通知済みを戻し_同じ時刻なら戻さない() throws Exception {
+		jdbcTemplate.update("UPDATE card SET notified = true WHERE id = 4");
+
+		// 時差の書き方が違うだけで同じ時刻
+		mockMvc.perform(put("/api/cards/4")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"title": "未着手の1枚目", "dueAt": "2026-10-08T00:00:00Z"}
+						"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.notified").value(true));
+
+		mockMvc.perform(put("/api/cards/4")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"title": "未着手の1枚目", "dueAt": "2026-10-09T00:00:00Z"}
+						"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.notified").value(false));
+	}
+
+	@Test
+	void 編集でタイトルに誤りがあるときは400を返し保存しない() throws Exception {
+		mockMvc.perform(put("/api/cards/4")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"title": "  "}
+						"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.title").value("タイトルを入力してください"));
+
+		mockMvc.perform(put("/api/cards/4")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"title\": \"" + "あ".repeat(51) + "\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.title").value("タイトルは50文字以内で入力してください"));
+
+		mockMvc.perform(get("/api/cards/4"))
+				.andExpect(jsonPath("$.title").value("未着手の1枚目"));
+	}
+
+	@Test
+	void 存在しないカードを編集すると404を返す() throws Exception {
+		mockMvc.perform(put("/api/cards/999")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"title": "課題"}
+						"""))
+				.andExpect(status().isNotFound());
 	}
 
 	private int countCards() {

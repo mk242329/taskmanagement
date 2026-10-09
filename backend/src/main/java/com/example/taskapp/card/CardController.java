@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -46,6 +47,14 @@ public class CardController {
 	public ResponseEntity<CardResponse> create(@Valid @RequestBody CardCreateRequest request) {
 		CardResponse created = cardService.create(request);
 		return ResponseEntity.created(URI.create("/api/cards/" + created.id())).body(created);
+	}
+
+	/**
+	 * カードの編集。編集後のカードを返す。入力に誤りがあれば 400、存在しない id は 404 を返す。
+	 */
+	@PutMapping("/{id}")
+	public CardResponse update(@PathVariable Long id, @Valid @RequestBody CardUpdateRequest request) {
+		return cardService.update(id, request);
 	}
 
 }

@@ -29,7 +29,7 @@ public class CardService {
 	public CardResponse findById(Long id) {
 		return cardRepository.findWithListById(id)
 				.map(CardResponse::from)
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "カードが見つかりません（id=" + id + "）"));
+				.orElseThrow(() -> notFound(id));
 	}
 
 	/**
@@ -49,6 +49,25 @@ public class CardService {
 				list,
 				cardRepository.findNextPosition(listId));
 		return CardResponse.from(cardRepository.save(card));
+	}
+
+	/**
+	 * カードのタイトル・説明文・期限・時間厳守を変更する。リストと並び順は変えない。
+	 */
+	@Transactional
+	public CardResponse update(Long id, CardUpdateRequest request) {
+		Card card = cardRepository.findWithListById(id)
+				.orElseThrow(() -> notFound(id));
+		card.update(
+				request.title(),
+				request.description() != null ? request.description() : "",
+				request.dueAt(),
+				Boolean.TRUE.equals(request.strict()));
+		return CardResponse.from(card);
+	}
+
+	private static ResponseStatusException notFound(Long id) {
+		return new ResponseStatusException(HttpStatus.NOT_FOUND, "カードが見つかりません（id=" + id + "）");
 	}
 
 }

@@ -69,6 +69,29 @@ public class Card {
 		this.updatedAt = now;
 	}
 
+	/**
+	 * タイトル・説明文・期限・時間厳守を変更する。
+	 * 期限が変わったときは、新しい期限でもう一度通知するため通知済みを戻す。
+	 */
+	public void update(String title, String description, OffsetDateTime dueAt, boolean strict) {
+		if (!sameInstant(this.dueAt, dueAt)) {
+			this.notified = false;
+		}
+		this.title = title;
+		this.description = description;
+		this.dueAt = dueAt;
+		this.strict = strict;
+		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+	}
+
+	// 時差の書き方が違っても、同じ時刻なら同じ期限とみなす
+	private static boolean sameInstant(OffsetDateTime a, OffsetDateTime b) {
+		if (a == null || b == null) {
+			return a == b;
+		}
+		return a.isEqual(b);
+	}
+
 	public Long getId() {
 		return id;
 	}

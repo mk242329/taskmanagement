@@ -6,10 +6,11 @@ type Props = {
   cards: Card[]
   now: Date
   onAdd: () => void
+  onOpen: (card: Card) => void
 }
 
 /** SC-01 ② リスト */
-function CardList({ name, cards, now, onAdd }: Props) {
+function CardList({ name, cards, now, onAdd, onOpen }: Props) {
   return (
     <section className="list" aria-label={name}>
       <h2 className="list-title">
@@ -17,7 +18,12 @@ function CardList({ name, cards, now, onAdd }: Props) {
       </h2>
       <div className="card-area">
         {cards.map((card) => (
-          <CardItem key={card.id} card={card} now={now} />
+          <CardItem
+            key={card.id}
+            card={card}
+            now={now}
+            onOpen={() => onOpen(card)}
+          />
         ))}
       </div>
       <button type="button" className="add-button" onClick={onAdd}>
