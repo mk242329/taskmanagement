@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import {
   createCard,
   fetchCards,
+  moveCard,
   updateCard,
   type Card,
   type ListId,
 } from '../api/cards'
-import { LISTS } from '../domain/card'
+import { LISTS, nextListOnCheck } from '../domain/card'
 import CardFormDialog, { type CardFormValues } from './CardFormDialog'
 import CardList from './CardList'
 
@@ -22,6 +23,8 @@ function Board() {
   const [addingTo, setAddingTo] = useState<ListId | null>(null)
   // 編集しているカード。null のときはウィンドウを閉じている
   const [editing, setEditing] = useState<Card | null>(null)
+  // 移動など、ボード上の操作に失敗したときのメッセージ
+  const [actionError, setActionError] = useState<string | null>(null)
 
   useEffect(() => {
     let ignore = false
@@ -61,6 +64,19 @@ function Board() {
     setEditing(null)
   }
 
+  /** チェックボックスで次のリストの一番下へ移す（F-11） */
+  async function handleCheck(card: Card) {
+    setActionError(null)
+    try {
+      // 両方のリストの並び順が変わるため、返ってきた一覧で置き換える
+      setCards(await moveCard(card.id, nextListOnCheck(card.listId)))
+      setNow(new Date())
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e)
+      setActionError(`タスクを移動できませんでした：${message}`)
+    }
+  }
+
   if (error !== null) {
     return (
       <p className="board-message board-error" role="alert">
@@ -75,6 +91,14 @@ function Board() {
   // API がリスト内の並び順で返すため、ここでは並べ替えない
   return (
     <main className="board">
+      {actionError !== null && (
+        <p
+          className="board-message board-error board-action-error"
+          role="alert"
+        >
+          {actionError}
+        </p>
+      )}
       {LISTS.map((list) => (
         <CardList
           key={list.id}
@@ -83,6 +107,7 @@ function Board() {
           now={now}
           onAdd={() => setAddingTo(list.id)}
           onOpen={setEditing}
+          onCheck={handleCheck}
         />
       ))}
       {addingTo !== null && (

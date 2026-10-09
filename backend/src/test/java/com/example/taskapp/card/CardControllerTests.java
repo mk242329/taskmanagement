@@ -4,11 +4,14 @@ import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.hasSize;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -315,6 +318,125 @@ class CardControllerTests {
 						{"title": "課題"}
 						"""))
 				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void 別のリストへ移すと移動先の指定した位置に入り移動後の一覧を返す() throws Exception {
+		// 未着手の1枚目（id=4）を作業中の一番上へ
+		mockMvc.perform(patch("/api/cards/4/move")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"listId": "doing", "position": 0}
+						"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$", hasSize(4)))
+				.andExpect(jsonPath("$[0].id").value(3))
+				.andExpect(jsonPath("$[0].position").value(0))
+				.andExpect(jsonPath("$[1].id").value(4))
+				.andExpect(jsonPath("$[1].listId").value("doing"))
+				.andExpect(jsonPath("$[1].position").value(0))
+				.andExpect(jsonPath("$[2].id").value(2))
+				.andExpect(jsonPath("$[2].position").value(1))
+				.andExpect(jsonPath("$[3].id").value(1));
+
+		// 保存されている
+		assertThat(positions("todo")).containsExactly("3:0");
+		assertThat(positions("doing")).containsExactly("4:0", "2:1");
+	}
+
+	@Test
+	void 並び順を省略すると移動先の一番下に入る() throws Exception {
+		mockMvc.perform(patch("/api/cards/4/move")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"listId": "done"}
+						"""))
+				.andExpect(status().isOk());
+
+		assertThat(positions("done")).containsExactly("1:0", "4:1");
+	}
+
+	@Test
+	void 並び順がリストの枚数より大きいときは一番下に入る() throws Exception {
+		mockMvc.perform(patch("/api/cards/4/move")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"listId": "doing", "position": 99}
+						"""))
+				.andExpect(status().isOk());
+
+		assertThat(positions("doing")).containsExactly("2:0", "4:1");
+	}
+
+	@Test
+	void 同じリストの中で並び替えられる() throws Exception {
+		jdbcTemplate.update("INSERT INTO card (title, list_id, position) VALUES ('未着手の3枚目', 'todo', 2)");
+
+		// 一番下（id=5）を一番上へ
+		mockMvc.perform(patch("/api/cards/5/move")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"listId": "todo", "position": 0}
+						"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].id").value(5))
+				.andExpect(jsonPath("$[1].id").value(4))
+				.andExpect(jsonPath("$[2].id").value(3));
+
+		assertThat(positions("todo")).containsExactly("5:0", "4:1", "3:2");
+
+		// 一番上（id=5）を一番下へ
+		mockMvc.perform(patch("/api/cards/5/move")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"listId": "todo", "position": 2}
+						"""))
+				.andExpect(status().isOk());
+
+		assertThat(positions("todo")).containsExactly("4:0", "3:1", "5:2");
+	}
+
+	@Test
+	void 移動で存在しないリストや誤った並び順を指定すると400を返し移さない() throws Exception {
+		mockMvc.perform(patch("/api/cards/4/move")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"listId": "unknown"}
+						"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("リストが見つかりません（listId=unknown）"));
+
+		mockMvc.perform(patch("/api/cards/4/move")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.listId").value("移動先のリストを指定してください"));
+
+		mockMvc.perform(patch("/api/cards/4/move")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"listId": "doing", "position": -1}
+						"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.position").value("並び順は0以上で指定してください"));
+
+		assertThat(positions("todo")).containsExactly("4:0", "3:1");
+	}
+
+	@Test
+	void 存在しないカードを移すと404を返す() throws Exception {
+		mockMvc.perform(patch("/api/cards/999/move")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"listId": "doing"}
+						"""))
+				.andExpect(status().isNotFound());
+	}
+
+	/** リストのカードを並び順に「id:並び順」の形で返す */
+	private List<String> positions(String listId) {
+		return jdbcTemplate.queryForList(
+				"SELECT id || ':' || position FROM card WHERE list_id = ? ORDER BY position, id", String.class, listId);
 	}
 
 	private int countCards() {

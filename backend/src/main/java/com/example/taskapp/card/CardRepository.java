@@ -14,6 +14,12 @@ public interface CardRepository extends JpaRepository<Card, Long> {
 	@Query("select c from Card c join fetch c.list l order by l.displayOrder, c.position, c.id")
 	List<Card> findAllOrdered();
 
+	/**
+	 * リストのカードを、リスト内の並び順で取得する。
+	 */
+	@Query("select c from Card c where c.list.id = :listId order by c.position, c.id")
+	List<Card> findByListIdOrdered(String listId);
+
 	@Query("select c from Card c join fetch c.list where c.id = :id")
 	Optional<Card> findWithListById(Long id);
 

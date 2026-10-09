@@ -92,6 +92,22 @@ public class Card {
 		return a.isEqual(b);
 	}
 
+	/**
+	 * 別のリスト・別の位置へ移す。
+	 */
+	public void moveTo(TaskList list, int position) {
+		this.list = list;
+		this.position = position;
+		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+	}
+
+	/**
+	 * ほかのカードの移動に合わせて、リスト内の並び順を詰め直す。カードの内容は変わらないため、更新日時は変えない。
+	 */
+	void renumber(int position) {
+		this.position = position;
+	}
+
 	public Long getId() {
 		return id;
 	}

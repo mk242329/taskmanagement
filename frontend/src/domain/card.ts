@@ -8,6 +8,21 @@ export const LISTS: { id: ListId; name: string }[] = [
   { id: 'done', name: '完了' },
 ]
 
+/**
+ * チェックボックスを押したときに移す先のリスト（F-11）。
+ * 未着手・作業中はチェックを付けると次のリストへ、完了はチェックを外すと作業中へ戻す
+ */
+export function nextListOnCheck(listId: ListId): ListId {
+  switch (listId) {
+    case 'todo':
+      return 'doing'
+    case 'doing':
+      return 'done'
+    case 'done':
+      return 'doing'
+  }
+}
+
 export type Priority = 'low' | 'medium' | 'high'
 
 export const PRIORITY_LABELS: Record<Priority, string> = {

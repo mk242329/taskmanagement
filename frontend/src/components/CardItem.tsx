@@ -11,10 +11,12 @@ type Props = {
   now: Date
   /** カードをクリックしたとき（編集ウィンドウを開く） */
   onOpen: () => void
+  /** チェックボックスを押したとき（次のリストへ移す） */
+  onCheck: () => void
 }
 
 /** SC-01 ③ カード */
-function CardItem({ card, now, onOpen }: Props) {
+function CardItem({ card, now, onOpen, onCheck }: Props) {
   const priority = getPriority(card, now)
   const overdue = isOverdue(card, now)
 
@@ -38,12 +40,12 @@ function CardItem({ card, now, onOpen }: Props) {
       }}
     >
       <div className="card-line1">
-        {/* チェックでのリスト移動は、移動の API ができてから付ける */}
+        {/* チェックの状態はリストで決まる。押すと移動し、移った先のリストで表示し直す */}
         <input
           type="checkbox"
           className="card-check"
           checked={card.listId === 'done'}
-          readOnly
+          onChange={onCheck}
           aria-label={`${card.title} の完了`}
           // チェックボックスを押しても編集ウィンドウは開かない（F-11）
           onClick={(e) => e.stopPropagation()}

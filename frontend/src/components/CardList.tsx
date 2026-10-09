@@ -7,10 +7,11 @@ type Props = {
   now: Date
   onAdd: () => void
   onOpen: (card: Card) => void
+  onCheck: (card: Card) => void
 }
 
 /** SC-01 ② リスト */
-function CardList({ name, cards, now, onAdd, onOpen }: Props) {
+function CardList({ name, cards, now, onAdd, onOpen, onCheck }: Props) {
   return (
     <section className="list" aria-label={name}>
       <h2 className="list-title">
@@ -23,6 +24,7 @@ function CardList({ name, cards, now, onAdd, onOpen }: Props) {
             card={card}
             now={now}
             onOpen={() => onOpen(card)}
+            onCheck={() => onCheck(card)}
           />
         ))}
       </div>

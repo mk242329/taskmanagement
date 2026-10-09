@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -55,6 +56,15 @@ public class CardController {
 	@PutMapping("/{id}")
 	public CardResponse update(@PathVariable Long id, @Valid @RequestBody CardUpdateRequest request) {
 		return cardService.update(id, request);
+	}
+
+	/**
+	 * カードの移動・並び替え。移動後のカード一覧を返す。
+	 * 入力に誤りがあるか存在しないリストなら 400、存在しないカードは 404 を返す。
+	 */
+	@PatchMapping("/{id}/move")
+	public List<CardResponse> move(@PathVariable Long id, @Valid @RequestBody CardMoveRequest request) {
+		return cardService.move(id, request);
 	}
 
 }
