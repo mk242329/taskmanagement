@@ -27,3 +27,132 @@ body {
   margin: 0;
   font-size: 20px;
 }
+
+.board {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 24px;
+}
+
+/* ===== ② リスト ===== */
+.list {
+  flex: 1;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background-color: #f4f5f7;
+}
+
+.list-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+.card-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ===== ③ カード ===== */
+.card {
+  padding: 10px 12px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background-color: #fff;
+  box-shadow: 0 1px 2px rgba(9, 30, 66, 0.25);
+  cursor: default;
+}
+
+.card:hover {
+  background-color: #f9fafc;
+}
+
+.card-line1 {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.card-title {
+  word-break: break-all;
+}
+
+.card-check {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  cursor: pointer;
+}
+
+.card-due {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #5e6c84;
+}
+
+/* 優先度ラベル */
+.priority {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.priority-high {
+  background-color: #e5484d;
+  color: #fff;
+}
+
+.priority-medium {
+  background-color: #f5c400;
+  color: #172b4d;
+}
+
+.priority-low {
+  background-color: #a0a7b4;
+  color: #fff;
+}
+
+/* 期限切れ */
+.card.overdue {
+  border-color: #e5484d;
+}
+
+.card.overdue .card-due {
+  color: #e5484d;
+  font-weight: bold;
+}
+
+/* ===== ④ 追加ボタン ===== */
+.add-button {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #5e6c84;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.add-button:hover {
+  background-color: #dfe3ea;
+  color: #172b4d;
+}
+
+/* 読み込み中・エラー */
+.board-message {
+  padding: 24px;
+  margin: 0;
+}
+
+.board-error {
+  color: #e5484d;
+  font-weight: bold;
+}
