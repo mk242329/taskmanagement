@@ -2,6 +2,7 @@
 
 作成日：2026年10月5日
 更新日：2026年10月6日（バックエンドを Java + Spring Boot、フロントエンドを React、データベースを PostgreSQL に変更）
+更新日：2026年10月7日（フロントエンドのコードチェックを ESLint から oxlint に変更。`frontend/` を作成）
 
 アプリを作るのに使う技術と、ファイルの構成をまとめる。
 
@@ -43,7 +44,7 @@ Next.js は今回使わない。React は Vite で作る、ブラウザだけで
 | サーバーとの通信 | ブラウザ標準の fetch |
 | 通知 | ブラウザの Notification API |
 | テスト | Vitest、React Testing Library |
-| コードの整形・チェック | ESLint、Prettier |
+| コードの整形・チェック | oxlint（Vite のテンプレートに含まれるもの）、Prettier |
 
 ### 2.3 データベース
 
@@ -110,4 +111,4 @@ taskmanagement/
     └── test-spec.md             … テスト仕様書
 ```
 
-`backend/` と `docker-compose.yml` は作成済み（Spring Initializr で作った初期状態）。`frontend/`、`prototype/` はこれから作る（今あるプロトタイプのファイルは `prototype/` に移す予定）。
+`backend/` と `docker-compose.yml` は作成済み（Spring Initializr で作った初期状態）。`frontend/` は作成済み（Vite の react-ts テンプレートで作った初期状態）。`prototype/` はこれから作る（今あるプロトタイプのファイルは `prototype/` に移す予定）。
