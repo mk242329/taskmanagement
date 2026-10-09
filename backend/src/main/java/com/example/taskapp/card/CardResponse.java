@@ -13,7 +13,6 @@ public record CardResponse(
 		boolean strict,
 		String listId,
 		int position,
-		boolean notified,
 		OffsetDateTime createdAt,
 		OffsetDateTime updatedAt) {
 
@@ -26,7 +25,6 @@ public record CardResponse(
 				card.isStrict(),
 				card.getList().getId(),
 				card.getPosition(),
-				card.isNotified(),
 				card.getCreatedAt(),
 				card.getUpdatedAt());
 	}

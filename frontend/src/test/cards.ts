@@ -10,7 +10,6 @@ export function makeCard(overrides: Partial<Card>): Card {
     strict: false,
     listId: 'todo',
     position: 0,
-    notified: false,
     createdAt: '2026-10-01T00:00:00Z',
     updatedAt: '2026-10-01T00:00:00Z',
     ...overrides,

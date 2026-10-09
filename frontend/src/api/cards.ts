@@ -11,7 +11,6 @@ export type Card = {
   strict: boolean
   listId: ListId
   position: number
-  notified: boolean
   createdAt: string
   updatedAt: string
 }

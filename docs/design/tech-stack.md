@@ -4,6 +4,7 @@
 更新日：2026年10月6日（バックエンドを Java + Spring Boot、フロントエンドを React、データベースを PostgreSQL に変更）
 更新日：2026年10月7日（フロントエンドのコードチェックを ESLint から oxlint に変更。`frontend/` を作成）
 更新日：2026年10月10日（各技術のバージョンを追記。ファイル構成を今のリポジトリに合わせる）
+更新日：2026年10月10日（リマインド通知をやめたため、Notification API を削除）
 
 アプリを作るのに使う技術と、ファイルの構成をまとめる。
 
@@ -54,7 +55,6 @@ Next.js は今回使わない。React は Vite で作る、ブラウザだけで
 | ビルドツール・開発サーバー | Vite（React 用プラグイン `@vitejs/plugin-react`） | Vite 8.3.4、プラグイン 6.1.2 |
 | ドラッグ＆ドロップ | [dnd-kit](https://dndkit.com/)（`@dnd-kit/core`・`@dnd-kit/sortable`・`@dnd-kit/utilities`） | core 6.3.1、sortable 10.0.0、utilities 3.2.2 |
 | サーバーとの通信 | ブラウザ標準の fetch | ― |
-| 通知 | ブラウザの Notification API | ― |
 | テスト | Vitest、React Testing Library（jsdom 上で動かす） | Vitest 5.0.3、React Testing Library 16.3.3、jsdom 30.1.2 |
 | コードのチェック | oxlint | 1.87.0 |
 | コードの整形 | Prettier | 3.9.9 |
@@ -85,8 +85,6 @@ Next.js は今回使わない。React は Vite で作る、ブラウザだけで
 | 動作確認 | バックエンドを `http://localhost:8080`、フロントエンドを Vite の開発サーバー `http://localhost:5173` で起動して開く | ― |
 | API の呼び出し先 | Vite のプロキシ設定で `/api` をバックエンドに転送する（CORS の設定を不要にするため） | ― |
 
-ブラウザ通知は `http://localhost` で開いた状態なら動く。
-
 対応ブラウザなどの動作環境は [非機能要件](../requirements/non-functional.md) にまとめる。
 
 ## 3. ファイル構成
@@ -114,7 +112,7 @@ taskmanagement/
 │       │   │   └── common/      … エラー時のレスポンスなど、機能をまたぐ処理
 │       │   └── resources/
 │       │       ├── application.yml
-│       │       └── db/migration/ … Flyway のテーブル作成 SQL
+│       │       └── db/migration/ … Flyway のテーブル作成・変更 SQL
 │       └── test/                … API のテスト（Testcontainers で PostgreSQL を起動する）
 ├── frontend/                    … React のプロジェクト
 │   ├── package.json

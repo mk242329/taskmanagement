@@ -43,7 +43,7 @@ function CardFormDialog({
 
   const id = useId()
   // 入力欄は秒を持たないため、期限を触っていなければ今の値をそのまま使う
-  // （秒がずれて「期限を変えた」と扱われ、通知がやり直しになるのを防ぐ）
+  // （保存するだけで秒が切り捨てられ、期限が変わってしまうのを防ぐ）
   const dueAt =
     initial !== undefined && due === initialDue ? initial.dueAt : toDueAt(due)
   // 入力中の期限と時間厳守から決まる優先度を、その場で表示する

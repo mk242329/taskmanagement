@@ -1,4 +1,4 @@
-// カードの優先度・期限切れの判定と、期限の表示形式（docs/design/data-flow.md の「4. 通知・期限切れの判定」）
+// カードの優先度・期限切れの判定と、期限の表示形式（docs/design/data-flow.md の「4. 期限切れ・優先度の判定」）
 import type { Card, ListId } from '../api/cards'
 
 // リストは3つ固定のため、プログラムの中に直接書く
