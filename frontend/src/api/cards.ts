@@ -36,23 +36,17 @@ type ErrorResponse = {
 
 /** カード一覧を取得する。リストの表示順 → リスト内の並び順で返る */
 export async function fetchCards(): Promise<Card[]> {
-  const res = await fetch('/api/cards')
-  if (!res.ok) {
-    throw await readError(res)
-  }
+  const res = await request('/api/cards')
   return res.json()
 }
 
 /** カードを追加する。追加先のリストの一番下に入り、追加したカードが返る */
 export async function createCard(input: CardCreateInput): Promise<Card> {
-  const res = await fetch('/api/cards', {
+  const res = await request('/api/cards', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   })
-  if (!res.ok) {
-    throw await readError(res)
-  }
   return res.json()
 }
 
@@ -61,14 +55,11 @@ export async function updateCard(
   id: number,
   input: CardUpdateInput,
 ): Promise<Card> {
-  const res = await fetch(`/api/cards/${id}`, {
+  const res = await request(`/api/cards/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   })
-  if (!res.ok) {
-    throw await readError(res)
-  }
   return res.json()
 }
 
@@ -81,23 +72,17 @@ export async function moveCard(
   listId: ListId,
   position?: number,
 ): Promise<Card[]> {
-  const res = await fetch(`/api/cards/${id}/move`, {
+  const res = await request(`/api/cards/${id}/move`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ listId, position }),
   })
-  if (!res.ok) {
-    throw await readError(res)
-  }
   return res.json()
 }
 
 /** カードを削除する。残ったカードの並び順はサーバーで詰め直される */
 export async function deleteCard(id: number): Promise<void> {
-  const res = await fetch(`/api/cards/${id}`, { method: 'DELETE' })
-  if (!res.ok) {
-    throw await readError(res)
-  }
+  await request(`/api/cards/${id}`, { method: 'DELETE' })
 }
 
 /** API がエラーを返したときの例外。入力の誤りは項目ごとのメッセージを errors に持つ */
@@ -111,12 +96,34 @@ export class ApiError extends Error {
   }
 }
 
-async function readError(res: Response): Promise<ApiError> {
+/**
+ * API を呼び出す。サーバーに届かないときや、エラーが返ったときは ApiError を投げる
+ */
+async function request(...args: Parameters<typeof fetch>): Promise<Response> {
+  let res: Response
   try {
-    const body: ErrorResponse = await res.json()
-    return new ApiError(body.message, body.errors)
+    res = await fetch(...args)
   } catch {
-    // バックエンドが止まっているときなど、JSON が返らない場合
-    return new ApiError(`サーバーとの通信に失敗しました（${res.status}）`)
+    // バックエンドが止まっているなど、サーバーに届かない場合（fetch の英語のメッセージは出さない）
+    throw new ApiError('サーバーに接続できませんでした')
+  }
+  if (!res.ok) {
+    throw await readError(res)
+  }
+  return res
+}
+
+async function readError(res: Response): Promise<ApiError> {
+  const fallback = `サーバーとの通信に失敗しました（${res.status}）`
+  try {
+    const body: Partial<ErrorResponse> = await res.json()
+    // message が入っていない形で返ることもあるため、そのときは状態コードを出す
+    if (typeof body.message !== 'string' || body.message === '') {
+      return new ApiError(fallback)
+    }
+    return new ApiError(body.message, body.errors ?? {})
+  } catch {
+    // JSON が返らない場合
+    return new ApiError(fallback)
   }
 }

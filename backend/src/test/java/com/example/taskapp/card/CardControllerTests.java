@@ -96,6 +96,22 @@ class CardControllerTests {
 	}
 
 	@Test
+	void idが数字でないときは400とエラーメッセージを返す() throws Exception {
+		mockMvc.perform(get("/api/cards/abc"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("送られた内容を読み取れません"))
+				.andExpect(jsonPath("$.errors").isMap());
+	}
+
+	@Test
+	void 使えないメソッドは405とエラーメッセージを返す() throws Exception {
+		mockMvc.perform(post("/api/cards/1/move"))
+				.andExpect(status().isMethodNotAllowed())
+				.andExpect(jsonPath("$.message").value("リクエストを処理できません（405）"))
+				.andExpect(jsonPath("$.errors").isMap());
+	}
+
+	@Test
 	void カードを追加するとリストの一番下に入り201と追加したカードを返す() throws Exception {
 		mockMvc.perform(post("/api/cards")
 				.contentType(MediaType.APPLICATION_JSON)

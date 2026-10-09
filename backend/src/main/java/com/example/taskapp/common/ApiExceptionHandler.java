@@ -3,7 +3,11 @@ package com.example.taskapp.common;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -21,6 +25,8 @@ import org.springframework.web.server.ResponseStatusException;
  */
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+	private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
 	public record ErrorResponse(String message, Map<String, String> errors) {
 	}
@@ -48,6 +54,27 @@ public class ApiExceptionHandler {
 		HttpStatus status = HttpStatus.valueOf(e.getStatusCode().value());
 		String message = e.getReason() != null ? e.getReason() : status.getReasonPhrase();
 		return ResponseEntity.status(status).body(new ErrorResponse(message, Map.of()));
+	}
+
+	/** URL の id が数字でないなど、送られた値の型が正しくない */
+	@ExceptionHandler(TypeMismatchException.class)
+	public ResponseEntity<ErrorResponse> handleTypeMismatch(TypeMismatchException e) {
+		return ResponseEntity.badRequest().body(new ErrorResponse("送られた内容を読み取れません", Map.of()));
+	}
+
+	/**
+	 * ほかのハンドラで扱わないエラー。Spring の既定の形では message が入らず、画面に理由を出せないため、ここでそろえる。
+	 * 存在しない URL・使えないメソッドなどはその状態コードのまま返し、それ以外（DB に接続できないなど）は 500 にする
+	 */
+	@ExceptionHandler(Exception.class)
+	public ResponseEntity<ErrorResponse> handleOther(Exception e) {
+		if (e instanceof org.springframework.web.ErrorResponse errorResponse) {
+			HttpStatusCode status = errorResponse.getStatusCode();
+			return ResponseEntity.status(status)
+					.body(new ErrorResponse("リクエストを処理できません（" + status.value() + "）", Map.of()));
+		}
+		log.error("API の処理中に予期しないエラーが起きました", e);
+		return ResponseEntity.internalServerError().body(new ErrorResponse("サーバーでエラーが起きました", Map.of()));
 	}
 
 }
