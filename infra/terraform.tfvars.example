@@ -1,0 +1,5 @@
+# このファイルを terraform.tfvars にコピーして値を書き換える（terraform.tfvars は Git に入れない）
+#   cp infra/terraform.tfvars.example infra/terraform.tfvars
+
+basic_auth_user     = "taskapp"
+basic_auth_password = "12文字以上のパスワードに書き換える"

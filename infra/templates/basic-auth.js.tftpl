@@ -1,0 +1,14 @@
+// CloudFront Function：正しい Basic 認証がないリクエストを 401 で止める
+function handler(event) {
+  var auth = event.request.headers.authorization;
+  if (auth && auth.value === 'Basic ${credentials}') {
+    return event.request;
+  }
+  return {
+    statusCode: 401,
+    statusDescription: 'Unauthorized',
+    headers: {
+      'www-authenticate': { value: 'Basic realm="taskapp"' },
+    },
+  };
+}

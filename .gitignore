@@ -1,2 +1,10 @@
 # 開発サーバーのログ（scripts/dev-start.sh が出力する）
 .dev/
+
+# Terraform（state にはパスワードなどが入ることがあるので Git に入れない。.terraform.lock.hcl はコミットする）
+infra/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
