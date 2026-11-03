@@ -41,6 +41,15 @@ main への直接コミット・プッシュは `.claude/hooks/guard-main-branch
 
 別のポートを指定した起動コマンドは `.claude/hooks/guard-dev-ports.sh` が機械的にブロックする。ブロックされたら回避策を探さず、`scripts/dev-start.sh` を使うこと。
 
+## AWS・Terraform（厳守）
+
+AWS の環境は `infra/` の Terraform で管理する。マネジメントコンソールで手作業の変更はしない。
+
+- `terraform apply` の前に必ず `terraform plan` を実行し、作成・変更・削除の件数と、削除・作り直し（`-` / `-/+`）されるものをユーザーに見せて承認を取る
+- `terraform destroy`・`-auto-approve` は実行しない。必要なときはユーザーに実行してもらう
+- `terraform.tfvars`・state・パスワードはコミットしない
+- AWS の認証は SSO のプロファイル `taskapp` を使う。`Token has expired` が出たら、ユーザーに `aws sso login --profile taskapp` を頼む（ブラウザでの承認が要るため）
+
 ## ブランチ命名規則
 
 ```

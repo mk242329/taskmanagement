@@ -14,6 +14,7 @@ Trello 風のタスク管理アプリです。「未着手」「作業中」「�
 - [起動と停止](#起動と停止)
 - [API](#api)
 - [テスト・コードチェック](#テストコードチェック)
+- [AWS へのデプロイ](#aws-へのデプロイ)
 - [開発の進め方](#開発の進め方)
 - [実装状況](#実装状況)
 
@@ -109,7 +110,8 @@ taskmanagement/
 ├── backend/             … Spring Boot（API・データベースの読み書き）
 ├── frontend/            … React + TypeScript + Vite（画面）
 ├── docs/                … 要件定義・設計・テストのドキュメント
-├── scripts/             … 開発サーバーの起動・停止スクリプト
+├── infra/               … AWS の環境を作る Terraform のコード
+├── scripts/             … 開発サーバーの起動・停止、AWS へのデプロイのスクリプト
 ├── docker-compose.yml   … PostgreSQL の起動設定
 ├── index.html ほか       … HTML + CSS + JavaScript のプロトタイプ
 ├── .claude/             … Claude Code のフック・スキル
@@ -273,6 +275,48 @@ PR を作ったときと main に push したときに、[`.github/workflows/ci.
 | バックエンド | `./mvnw test`（Testcontainers は GitHub Actions の Docker を使う） |
 
 PR は、両方のジョブが成功してからマージします。
+
+## AWS へのデプロイ
+
+AWS の環境は `infra/` の Terraform で作り、アプリは `scripts/deploy-*.sh` で載せます。マネジメントコンソールは使いません。
+
+```mermaid
+flowchart LR
+    Browser[ブラウザ] --> CF[CloudFront<br>Basic 認証]
+    CF -- "/api/* 以外" --> S3[(S3<br>画面)]
+    CF -- "/api/*" --> EC2[EC2<br>Spring Boot]
+    EC2 --> RDS[(RDS<br>PostgreSQL 17)]
+```
+
+### 必要なもの
+
+- AWS CLI v2・Terraform 1.10 以上（`brew install awscli hashicorp/tap/terraform`）
+- IAM Identity Center（SSO）のプロファイル `taskapp`（`aws configure sso` で作る）。ほかの名前にするときは `AWS_PROFILE` を設定する
+
+### 初めて作るとき
+
+```bash
+aws sso login --profile taskapp
+scripts/infra-init.sh                                   # state 用の S3 バケットを作り、terraform init する
+cp infra/terraform.tfvars.example infra/terraform.tfvars  # Basic 認証のパスワードを書く
+cd infra && terraform plan -out=tfplan                  # 作られるものを確認する
+terraform apply tfplan                                  # 15 分ほどかかる（RDS と CloudFront の作成待ち）
+cd .. && scripts/deploy-backend.sh && scripts/deploy-frontend.sh
+```
+
+最後に表示される URL を開き、`terraform.tfvars` に書いたユーザー名とパスワードでログインします。
+
+### コードを変えたあと
+
+- バックエンド：`scripts/deploy-backend.sh`（イメージをビルドして ECR に push し、EC2 で起動し直す）
+- フロントエンド：`scripts/deploy-frontend.sh`（ビルドして S3 に置き、CloudFront のキャッシュを消す）
+- インフラ：`infra/` を直して `terraform plan` → 確認 → `terraform apply`
+
+EC2 に入ってログを見るときは、SSH ではなく `aws ssm start-session --target $(terraform -chdir=infra output -raw backend_instance_id)` を使い、`sudo docker logs taskapp-backend` を実行します。
+
+### 費用と後片付け
+
+動かし続けると月 40 ドル前後かかります（RDS と EC2 が大半）。使わなくなったら `cd infra && terraform destroy` ですべて消します（DB のデータも消えます）。state 用の S3 バケットは Terraform の管理外なので、最後に手で消します。
 
 ## 開発の進め方
 

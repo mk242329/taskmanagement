@@ -1,0 +1,22 @@
+#!/bin/bash
+# ECR から最新のイメージを取り直し、バックエンドのコンテナを起動し直す。
+# scripts/deploy-backend.sh が SSM 経由で実行する
+set -euo pipefail
+
+aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${registry}
+docker pull ${image}
+
+# DB のパスワードは Secrets Manager から読む（RDS が生成・保管している）
+secret=$(aws secretsmanager get-secret-value --region ${region} --secret-id '${db_secret_arn}' --query SecretString --output text)
+env_file=$(mktemp)
+chmod 600 "$env_file"
+cat > "$env_file" <<ENV
+SPRING_DATASOURCE_URL=jdbc:postgresql://${db_host}:5432/${db_name}
+SPRING_DATASOURCE_USERNAME=$(jq -r .username <<<"$secret")
+SPRING_DATASOURCE_PASSWORD=$(jq -r .password <<<"$secret")
+ENV
+
+docker rm -f taskapp-backend 2>/dev/null || true
+docker run -d --name taskapp-backend --restart always -p 8080:8080 --env-file "$env_file" ${image}
+rm -f "$env_file"
+docker image prune -f

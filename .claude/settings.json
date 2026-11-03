@@ -1,4 +1,26 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(terraform fmt:*)",
+      "Bash(terraform validate:*)",
+      "Bash(terraform plan:*)",
+      "Bash(terraform output:*)",
+      "Bash(aws sts get-caller-identity:*)"
+    ],
+    "ask": [
+      "Bash(terraform apply:*)",
+      "Bash(scripts/deploy-backend.sh:*)",
+      "Bash(scripts/deploy-frontend.sh:*)",
+      "Bash(aws s3 sync:*)",
+      "Bash(aws ssm send-command:*)"
+    ],
+    "deny": [
+      "Bash(terraform destroy:*)",
+      "Bash(terraform apply -auto-approve:*)",
+      "Bash(terraform apply -destroy:*)",
+      "Bash(terraform state rm:*)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
