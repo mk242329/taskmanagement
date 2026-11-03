@@ -50,7 +50,7 @@ Trello 風のタスク管理アプリです。「未着手」「作業中」「�
 | F-04 | カード削除 | 確認を表示してからカードを削除する（編集ウィンドウの「削除」か、ボードのゴミ箱マークから） |
 | F-05 | リスト間の移動 | ドラッグ＆ドロップでカードを別のリストへ移す |
 | F-06 | リスト内の並び替え | ドラッグ＆ドロップで同じリスト内の順番を入れ替える |
-| F-07 | データ保存 | 変更のたびに PostgreSQL へ自動で保存する。ブラウザを閉じても残る |
+| F-07 | データ保存 | 変更のたびに DynamoDB へ自動で保存する。ブラウザを閉じても残る |
 | F-09 | 期限切れの表示 | 期限を過ぎた未完了のカードを赤色で目立たせる |
 | F-10 | 優先度の自動判定 | 期限の近さと時間厳守から優先度を自動で決める |
 | F-11 | チェックでの移動 | チェックを付けると、未着手 → 作業中 → 完了へ移す |
@@ -69,17 +69,18 @@ Trello 風のタスク管理アプリです。「未着手」「作業中」「�
 ```mermaid
 flowchart LR
     Browser[ブラウザ<br>React] -- "REST API（JSON）" --> API[サーバー<br>Spring Boot]
-    API -- "JPA" --> DB[(PostgreSQL)]
+    API -- "AWS SDK" --> DB[(DynamoDB)]
 ```
 
 | 区分 | 技術 |
 | --- | --- |
-| バックエンド | Java 21（OpenJDK 21.0.12）、Spring Boot 4.1.1、Spring Data JPA 4.1.1（Hibernate 7.4.5）、Flyway 12.4.0 |
+| バックエンド | Java 21（OpenJDK 21.0.12）、Spring Boot 4.1.1、AWS SDK for Java 2.57（DynamoDB） |
 | バックエンドのビルド | Maven 3.9.16（Maven Wrapper 3.3.4 の `./mvnw` で動かす。Gradle は使わない） |
 | フロントエンド | TypeScript 7.0.2、React 19.3.0、Vite 8.3.4、dnd-kit（@dnd-kit/core 6.3.1・@dnd-kit/sortable 10.0.0） |
 | フロントエンドのパッケージ管理 | npm 11.19.0（Node.js 24.21.0） |
-| データベース | PostgreSQL 17.11（Docker イメージ `postgres:17`、Docker Compose で起動） |
-| テスト | JUnit 6、Testcontainers 2.0（バックエンド）／Vitest 5.0、React Testing Library 16.3（フロントエンド） |
+| データベース | DynamoDB（開発中は DynamoDB Local 3.3.2 を Docker Compose で起動） |
+| AWS | CloudFront、S3、Lambda（Lambda Web Adapter）、DynamoDB。すべて無料枠の範囲。Terraform で管理 |
+| テスト | JUnit 6、Testcontainers 2.0（DynamoDB Local を起動する。バックエンド）／Vitest 5.0、React Testing Library 16.3（フロントエンド） |
 | コードチェック | oxlint 1.87、Prettier 3.9 |
 | 開発環境 | Colima 0.10.3、Docker 29.8.2、Docker Compose 5.6.0、Git 2.39.5、GitHub CLI 2.101.0 |
 
@@ -97,9 +98,9 @@ Next.js は使わず、React は Vite で作るブラウザだけで動く画面
 | | [画面要件](docs/requirements/screens.md) | 画面 SC-01〜SC-03 で表示する情報とできる操作 |
 | | [非機能要件](docs/requirements/non-functional.md) | 対応ブラウザ、応答時間、データの保存先など |
 | 設計 | [画面設計](docs/design/screen-design.md) | 画面遷移図と画面レイアウト |
-| | [データベース設計](docs/design/database.md) | ER 図とテーブル定義 |
+| | [データベース設計](docs/design/database.md) | データの関係と DynamoDB のテーブル定義 |
 | | [データフロー](docs/design/data-flow.md) | データの流れ、API 一覧、期限切れ・優先度の判定条件 |
-| | [技術スタック](docs/design/tech-stack.md) | 使う技術とバージョン、開発環境、ファイル構成 |
+| | [技術スタック](docs/design/tech-stack.md) | 使う技術とバージョン、開発環境、AWS の構成、ファイル構成 |
 | テスト | [テスト仕様書](docs/test-spec.md) | 機能と非機能要件を確認する手順 |
 | デプロイ | [AWS デプロイ入門ガイド](docs/aws-deploy-guide.md) | AWS・Terraform・IaC の解説、認証の設定、デプロイと後片付けの手順 |
 | 開発ルール | [CLAUDE.md](CLAUDE.md) | イシュー・ブランチ・PR の進め方、開発サーバーのポート |
@@ -113,7 +114,7 @@ taskmanagement/
 ├── docs/                … 要件定義・設計・テストのドキュメント
 ├── infra/               … AWS の環境を作る Terraform のコード
 ├── scripts/             … 開発サーバーの起動・停止、AWS へのデプロイのスクリプト
-├── docker-compose.yml   … PostgreSQL の起動設定
+├── docker-compose.yml   … DynamoDB Local の起動設定
 ├── index.html ほか       … HTML + CSS + JavaScript のプロトタイプ
 ├── .claude/             … Claude Code のフック・スキル
 └── .github/             … イシュー・PR のテンプレート
@@ -131,7 +132,8 @@ taskmanagement/
 | --- | --- |
 | Java 21 | バックエンドのビルド・起動（Maven 3.9.16 は `backend/mvnw` が自動で用意する） |
 | Node.js 24・npm 11 | フロントエンドの依存関係の追加・ビルド・起動 |
-| Colima・Docker・Docker Compose | PostgreSQL の起動、バックエンドのテスト |
+| Colima・Docker・Docker Compose | DynamoDB Local の起動、バックエンドのテスト |
+| jq | サンプルデータの投入（`backend/seed/sample-cards.sh`） |
 | GitHub CLI（`gh`） | イシュー・PR の作成 |
 
 ### Docker（Colima）
@@ -170,17 +172,17 @@ scripts/dev-stop.sh       # バックエンドとフロントエンドを止め�
 | --- | --- |
 | フロントエンド | http://localhost:5173 |
 | バックエンド | http://localhost:8080 |
-| PostgreSQL | `localhost:5432` |
+| DynamoDB Local | http://localhost:8000 |
 
 - ポートがほかのプロセスに使われているときは、そのプロセスを止めてから決められたポートで起動します。フロントエンドは `/api` を 8080 に転送しているため、別のポートでは動かしません
 - ログは `.dev/backend.log`・`.dev/frontend.log` に出ます
-- テーブルはバックエンドの起動時に Flyway が `backend/src/main/resources/db/migration/` の SQL から自動で作ります
+- DynamoDB のテーブルは、なければバックエンドの起動時に自動で作ります（`LocalTableCreator`）
 
 ### 手動で起動する
 
 ```sh
 colima start              # Docker を起動（Mac を再起動したら毎回必要）
-docker compose up -d      # PostgreSQL を起動
+docker compose up -d      # DynamoDB Local を起動
 cd backend && ./mvnw spring-boot:run   # バックエンドを起動（http://localhost:8080）
 ```
 
@@ -192,10 +194,10 @@ cd frontend && npm run dev   # フロントエンドを起動（http://localhost
 
 ### テストデータの投入
 
-バックエンドを一度起動してテーブルができたあとに、サンプルのカードを投入できます（既存のカードは消えます）。
+バックエンドを起動したあとに、サンプルのカードを API で投入できます（既存のカードは消えます）。
 
 ```sh
-docker compose exec -T db psql -U taskapp -d taskapp < backend/seed/sample-cards.sql
+backend/seed/sample-cards.sh
 ```
 
 ### データベースを止める
@@ -245,7 +247,7 @@ curl -X DELETE http://localhost:8080/api/cards/1
 
 ### バックエンド
 
-テストは Testcontainers で使い捨ての PostgreSQL を起動します。Colima の場合は次の環境変数が必要です。
+テストは Testcontainers で使い捨ての DynamoDB Local を起動します。Colima の場合は次の環境変数が必要です。
 
 ```sh
 export DOCKER_HOST=unix://$HOME/.colima/default/docker.sock
@@ -279,7 +281,7 @@ PR は、両方のジョブが成功してからマージします。
 
 ## AWS へのデプロイ
 
-AWS の環境は `infra/` の Terraform で作り、アプリは `scripts/deploy-*.sh` で載せます。マネジメントコンソールは使いません。
+AWS の環境は `infra/` の Terraform で作り、アプリは `scripts/deploy-*.sh` で載せます。マネジメントコンソールは使いません。個人で使うアプリなので、AWS の無料枠（Always Free）だけで動く構成にしています。
 
 AWS・Terraform を初めて使うときや、認証（`taskapp` プロファイル）の設定から始めるときは、[AWS デプロイ入門ガイド](docs/aws-deploy-guide.md) を参照してください。
 
@@ -287,8 +289,8 @@ AWS・Terraform を初めて使うときや、認証（`taskapp` プロファイ
 flowchart LR
     Browser[ブラウザ] --> CF[CloudFront<br>Basic 認証]
     CF -- "/api/* 以外" --> S3[(S3<br>画面)]
-    CF -- "/api/*" --> EC2[EC2<br>Spring Boot]
-    EC2 --> RDS[(RDS<br>PostgreSQL 17)]
+    CF -- "/api/*" --> Lambda[Lambda<br>Spring Boot]
+    Lambda --> DDB[(DynamoDB)]
 ```
 
 ### 必要なもの
@@ -303,7 +305,7 @@ aws sso login --profile taskapp
 scripts/infra-init.sh                                   # state 用の S3 バケットを作り、terraform init する
 cp infra/terraform.tfvars.example infra/terraform.tfvars  # Basic 認証のパスワードを書く
 cd infra && terraform plan -out=tfplan                  # 作られるものを確認する
-terraform apply tfplan                                  # 15 分ほどかかる（RDS と CloudFront の作成待ち）
+terraform apply tfplan                                  # 5 分ほどかかる（CloudFront の作成待ち）
 cd .. && scripts/deploy-backend.sh && scripts/deploy-frontend.sh
 ```
 
@@ -311,15 +313,15 @@ cd .. && scripts/deploy-backend.sh && scripts/deploy-frontend.sh
 
 ### コードを変えたあと
 
-- バックエンド：`scripts/deploy-backend.sh`（イメージをビルドして ECR に push し、EC2 で起動し直す）
+- バックエンド：`scripts/deploy-backend.sh`（jar をビルドして zip にし、Lambda のコードを入れ替える）
 - フロントエンド：`scripts/deploy-frontend.sh`（ビルドして S3 に置き、CloudFront のキャッシュを消す）
 - インフラ：`infra/` を直して `terraform plan` → 確認 → `terraform apply`
 
-EC2 に入ってログを見るときは、SSH ではなく `aws ssm start-session --target $(terraform -chdir=infra output -raw backend_instance_id)` を使い、`sudo docker logs taskapp-backend` を実行します。
+バックエンドのログは `aws logs tail /aws/lambda/taskapp-backend --follow --profile taskapp` で見ます。しばらく使わないと Lambda が止まるため、次の最初のアクセスは Spring Boot の起動を待って数秒かかります。
 
 ### 費用と後片付け
 
-動かし続けると月 40 ドル前後かかります（RDS と EC2 が大半）。使わなくなったら `cd infra && terraform destroy` ですべて消します（DB のデータも消えます）。state 用の S3 バケットは Terraform の管理外なので、最後に手で消します。
+無料枠の範囲で動くため、個人で使う分には月 0 円です（無料枠の対象外の S3 も、数 MB のため月 1 円未満）。使わなくなったら `cd infra && terraform destroy` ですべて消します（DB のデータも消えます）。state 用の S3 バケットは Terraform の管理外なので、最後に手で消します。
 
 ## 開発の進め方
 

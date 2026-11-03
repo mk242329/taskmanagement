@@ -27,14 +27,8 @@ variable "basic_auth_password" {
   }
 }
 
-variable "ec2_instance_type" {
-  description = "バックエンドを動かす EC2 の大きさ（Graviton = arm64）"
-  type        = string
-  default     = "t4g.small"
-}
-
-variable "db_instance_class" {
-  description = "RDS の大きさ"
-  type        = string
-  default     = "db.t4g.micro"
+variable "backend_memory_mb" {
+  description = "バックエンドの Lambda のメモリ（MB）。増やすと CPU も増え、起動が速くなる"
+  type        = number
+  default     = 2048
 }

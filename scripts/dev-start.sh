@@ -18,16 +18,16 @@ start_db() {
     echo "Colima を起動します"
     colima start
   fi
-  # 5432 は Colima がコンテナへ転送しているため、止めずに docker compose に任せる
+  # 8000 は Colima がコンテナへ転送しているため、止めずに docker compose に任せる
   (cd "$ROOT" && docker compose up -d db)
   for _ in $(seq 1 30); do
-    if (cd "$ROOT" && docker compose exec -T db pg_isready -U taskapp -d taskapp >/dev/null 2>&1); then
-      echo "PostgreSQL が起動しました: localhost:$DB_PORT"
+    if curl -s -o /dev/null "http://localhost:$DB_PORT"; then
+      echo "DynamoDB Local が起動しました: http://localhost:$DB_PORT"
       return 0
     fi
     sleep 1
   done
-  echo "エラー: PostgreSQL が起動しませんでした。" >&2
+  echo "エラー: DynamoDB Local が起動しませんでした。" >&2
   exit 1
 }
 

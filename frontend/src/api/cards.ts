@@ -41,11 +41,7 @@ export async function fetchCards(): Promise<Card[]> {
 
 /** カードを追加する。追加先のリストの一番下に入り、追加したカードが返る */
 export async function createCard(input: CardCreateInput): Promise<Card> {
-  const res = await request('/api/cards', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  })
+  const res = await sendJson('/api/cards', 'POST', input)
   return res.json()
 }
 
@@ -54,11 +50,7 @@ export async function updateCard(
   id: number,
   input: CardUpdateInput,
 ): Promise<Card> {
-  const res = await request(`/api/cards/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  })
+  const res = await sendJson(`/api/cards/${id}`, 'PUT', input)
   return res.json()
 }
 
@@ -71,10 +63,9 @@ export async function moveCard(
   listId: ListId,
   position?: number,
 ): Promise<Card[]> {
-  const res = await request(`/api/cards/${id}/move`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ listId, position }),
+  const res = await sendJson(`/api/cards/${id}/move`, 'PATCH', {
+    listId,
+    position,
   })
   return res.json()
 }
@@ -93,6 +84,38 @@ export class ApiError extends Error {
     this.name = 'ApiError'
     this.errors = errors
   }
+}
+
+/**
+ * JSON を送る API を呼び出す。
+ * AWS では CloudFront が API（Lambda 関数 URL）へ署名を付けて転送するため、本文のあるリクエストには
+ * 本文の SHA-256 を x-amz-content-sha256 ヘッダーで付ける必要がある（ローカルのバックエンドは使わない）
+ */
+async function sendJson(
+  path: string,
+  method: 'POST' | 'PUT' | 'PATCH',
+  data: unknown,
+): Promise<Response> {
+  const body = JSON.stringify(data)
+  return request(path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'x-amz-content-sha256': await sha256Hex(body),
+    },
+    body,
+  })
+}
+
+/** 文字列（UTF-8）の SHA-256 を 16 進数で返す */
+export async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(text),
+  )
+  return Array.from(new Uint8Array(digest), (b) =>
+    b.toString(16).padStart(2, '0'),
+  ).join('')
 }
 
 /**

@@ -1,39 +1,26 @@
 package com.example.taskapp.card;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import java.util.List;
+import java.util.Optional;
 
 /**
- * リスト（未着手・作業中・完了）。3つで固定のため、読み取り専用で扱う。
+ * リスト（未着手・作業中・完了）。3つで固定のため、DB には置かずコードで持つ。
  */
-@Entity
-@Table(name = "list")
-public class TaskList {
+public record TaskList(String id, String name, int displayOrder) {
 
-	@Id
-	private String id;
+	/** すべてのリスト（表示順） */
+	public static final List<TaskList> ALL = List.of(
+			new TaskList("todo", "未着手", 1),
+			new TaskList("doing", "作業中", 2),
+			new TaskList("done", "完了", 3));
 
-	@Column(nullable = false)
-	private String name;
-
-	@Column(name = "display_order", nullable = false)
-	private int displayOrder;
-
-	protected TaskList() {
+	public static Optional<TaskList> findById(String id) {
+		return ALL.stream().filter(list -> list.id().equals(id)).findFirst();
 	}
 
-	public String getId() {
-		return id;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public int getDisplayOrder() {
-		return displayOrder;
+	/** リストの表示順。存在しないリストは一番うしろにする */
+	static int displayOrderOf(String id) {
+		return findById(id).map(TaskList::displayOrder).orElse(Integer.MAX_VALUE);
 	}
 
 }

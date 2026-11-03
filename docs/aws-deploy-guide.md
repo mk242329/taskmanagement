@@ -1,6 +1,7 @@
 # AWS デプロイ入門ガイド
 
 作成日：2026年11月4日
+更新日：2026年11月4日（無料枠に収まる構成（Lambda・DynamoDB）に変更）
 
 AWS・Terraform を初めて使う人が、このアプリを AWS 上で動かすまでの手順と、その途中で出てくる言葉や考え方をまとめる。コマンドは Claude Code に実行してもらってかまわないが、何が起きているかはこのガイドで理解してから進める。
 
@@ -26,9 +27,9 @@ AWS・Terraform を初めて使う人が、このアプリを AWS 上で動か�
 | 対象 | AWS・Terraform・IaC を使ったことがない人 |
 | ゴール | ブラウザで CloudFront の URL を開き、Basic 認証のあとにボードが表示され、カードの追加・移動が保存される |
 | 用意するもの | AWS アカウント（管理者の IAM ユーザーでコンソールにログインできる）、Mac、このリポジトリ |
-| 必要なツール | AWS CLI v2、Terraform 1.10 以上、Docker（Colima）、Node.js 24（`brew install awscli hashicorp/tap/terraform`） |
-| 所要時間 | 認証の設定に 30 分、初回のデプロイに 30 分ほど（うち 15 分ほどは AWS の作成待ち） |
-| 費用 | 動かし続けると月 40 ドル前後（大半は RDS と EC2）。使わないときは [後片付け](#10-後片付け) で消す |
+| 必要なツール | AWS CLI v2、Terraform 1.10 以上、Java 21（バックエンドのビルド）、Node.js 24（画面のビルド）（`brew install awscli hashicorp/tap/terraform`） |
+| 所要時間 | 認証の設定に 30 分、初回のデプロイに 20 分ほど（うち 5 分ほどは CloudFront の作成待ち） |
+| 費用 | 月 0 円。期限なしで無料の枠（Always Free）の範囲だけで動かす（[2.3 無料枠](#23-無料枠と構成の選び方)）。S3 だけは対象外だが、数 MB のため月 1 円未満 |
 
 ## 2. AWS の基本
 
@@ -49,31 +50,52 @@ AWS（Amazon Web Services）は、サーバー・データベース・ストレ�
 flowchart LR
     Browser[ブラウザ] --> CF[CloudFront<br>Basic 認証]
     CF -- "/api/* 以外" --> S3[(S3<br>画面)]
-    CF -- "/api/*" --> EC2[EC2<br>Spring Boot]
-    EC2 --> RDS[(RDS<br>PostgreSQL 17)]
-    ECR[(ECR<br>イメージ置き場)] -. "イメージを取得" .-> EC2
+    CF -- "/api/*（署名付き）" --> Lambda[Lambda<br>Spring Boot]
+    Lambda --> DDB[(DynamoDB)]
+    Lambda -. "ログ" .-> Logs[(CloudWatch Logs)]
 ```
 
 | サービス | 役割 | 自分のパソコンでは |
 | --- | --- | --- |
-| CloudFront | 入口。HTTPS で受け付け、Basic 認証をかけ、`/api/*` は EC2 へ、それ以外は S3 へ振り分ける | Vite の開発サーバー（5173）の `/api` 転送 |
+| CloudFront | 入口。HTTPS で受け付け、Basic 認証をかけ、`/api/*` は Lambda へ、それ以外は S3 へ振り分ける | Vite の開発サーバー（5173）の `/api` 転送 |
 | S3 | ビルドした画面のファイル（HTML・JS・CSS）を置く場所 | `frontend/dist` |
-| EC2 | 仮想サーバー。Docker で Spring Boot を動かす | `./mvnw spring-boot:run`（8080） |
-| ECR | Docker イメージの置き場 | 手元の `docker images` |
-| RDS | AWS が管理する PostgreSQL | Docker Compose の `postgres:17` |
-| Secrets Manager | DB のパスワードを保管する。RDS が自動で作る | `application.yml` のパスワード |
-| VPC・サブネット | 自分専用のネットワーク。RDS はインターネットから届かない「プライベートサブネット」に置く | 自分のパソコンの中 |
-| セキュリティグループ | サーバーごとのファイアウォール。EC2 の 8080 は CloudFront からだけ、RDS の 5432 は EC2 からだけ通す | なし |
+| Lambda | リクエストが来たときだけ動くサーバー。Spring Boot をそのまま動かす | `./mvnw spring-boot:run`（8080） |
+| Lambda Web Adapter | Lambda に届いたリクエストを、中で動いている Spring Boot に HTTP で渡す仕組み（AWS が公開している「レイヤー」） | なし |
+| 関数 URL | Lambda を HTTPS で呼ぶための URL。CloudFront からの署名付きのリクエストだけを受け付ける | `http://localhost:8080` |
+| DynamoDB | AWS が管理するデータベース（キーで項目を読み書きする NoSQL） | Docker Compose の DynamoDB Local（8000） |
+| CloudWatch Logs | Lambda のログの置き場所。7 日で消す | `.dev/backend.log` |
 | IAM | 「誰が・何を・どこまでできるか」の権限の仕組み | なし |
-| SSM（Systems Manager） | SSH を使わずに EC2 にコマンドを送ったり、中に入ったりする仕組み | なし |
 
-### 2.3 IAM の言葉
+サーバー（EC2）やネットワーク（VPC）を自分で持たないため、OS の更新やファイアウォールの設定は要らない。代わりに、しばらく使わないと Lambda が止まり、次の最初のアクセスは Spring Boot の起動を待って数秒かかる（コールドスタート）。
+
+### 2.3 無料枠と構成の選び方
+
+AWS の無料枠には、作ってから一定期間だけのもの（新規アカウントのクレジットなど）と、**期限なしで無料のもの（Always Free）** がある。このアプリは個人で使う課題なので、Always Free だけで動く構成にしている。
+
+| サービス | 無料の範囲（毎月） | このアプリの使い方 |
+| --- | --- | --- |
+| CloudFront | 1 TB の転送、1,000 万リクエスト、CloudFront Functions 200 万回 | 個人で使う分には届かない |
+| Lambda | 100 万リクエスト、40 万 GB 秒（メモリ 2 GB なら 20 万秒） | 同上 |
+| DynamoDB | 読み込み・書き込み各 25 キャパシティユニット、25 GB | 2 つのテーブルで読み込み・書き込み各 12 を確保（[`infra/database.tf`](../infra/database.tf)） |
+| CloudWatch Logs | 5 GB | 7 日で消す |
+| S3 | 対象外 | 画面のファイル数 MB だけなので、月 1 円未満 |
+
+次のサービスは Always Free に入らず、作るだけで料金がかかるため使っていない。
+
+| 使っていないもの | 料金がかかる理由 | 代わりに使うもの |
+| --- | --- | --- |
+| EC2（仮想サーバー） | 動かしている時間だけかかる。パブリック IP も 1 つ月 3.6 ドルほど | Lambda |
+| RDS（PostgreSQL） | 動かしている時間とディスクの量だけかかる | DynamoDB |
+| Secrets Manager | 秘密 1 つにつき月 0.4 ドル | DynamoDB は IAM ロールで読み書きするため、パスワードが要らない |
+| DynamoDB のオンデマンド | リクエストごとにかかる（無料枠の対象外） | プロビジョンド（決まった量を確保する） |
+
+### 2.4 IAM の言葉
 
 | 言葉 | 意味 |
 | --- | --- |
 | ルートユーザー | アカウントを作ったメールアドレスでのログイン。何でもできるため、普段は使わない |
 | IAM ユーザー | アカウントの中に作る利用者。長期間有効なアクセスキーを発行できる |
-| IAM ロール | 一時的に借りる権限。EC2 は「ECR からイメージを取る」「DB のパスワードを読む」ロールを持つ（`infra/backend.tf`） |
+| IAM ロール | 一時的に借りる権限。Lambda は「ログを書く」「DynamoDB のテーブルを読み書きする」ロールを持つ（`infra/backend.tf`） |
 | ポリシー | 許可する操作を書いたもの。ロールやユーザーに付ける |
 | IAM Identity Center（SSO） | 人がログインして、短時間だけ有効な認証情報をもらう仕組み。このガイドではこれを使う |
 
@@ -110,9 +132,9 @@ flowchart LR
 | --- | --- | --- |
 | provider | どのサービスを操作するかのプラグイン | `hashicorp/aws`（`infra/versions.tf`） |
 | resource | 作るもの 1 つ | `resource "aws_instance" "backend"` など |
-| data | 作らずに読むだけのもの | 最新の Amazon Linux の AMI、CloudFront の IP 一覧など |
+| data | 作らずに読むだけのもの | CloudFront の管理されたキャッシュポリシー、Lambda の仮のコード（zip）など |
 | variable | 外から渡す値 | `infra/variables.tf`。値は `terraform.tfvars` に書く |
-| output | 作ったあとに表示する値 | `infra/outputs.tf`。URL や EC2 の ID。デプロイスクリプトもここから読む |
+| output | 作ったあとに表示する値 | `infra/outputs.tf`。URL や Lambda の関数名。デプロイスクリプトもここから読む |
 | state | Terraform が作ったものの記録（どの AWS のものがどの resource か） | S3 バケット `taskapp-tfstate-<アカウント ID>` に置く |
 | lock | 2 人が同時に apply して state を壊さないための鍵 | `use_lockfile = true`（S3 にロックファイルを置く） |
 
@@ -133,29 +155,27 @@ state はパソコンに置くとなくしたときに Terraform が AWS の中�
 ### 3.4 plan の読み方
 
 ```text
-  + resource "aws_s3_bucket" "frontend" { ... }        # 作る
-  ~ resource "aws_cloudfront_function" "basic_auth" {  # その場で変更する
-  - resource "aws_eip" "backend" { ... }               # 消す
--/+ resource "aws_instance" "backend" { ... }          # 消してから作り直す
+  + resource "aws_s3_bucket" "frontend" { ... }         # 作る
+  ~ resource "aws_cloudfront_function" "basic_auth" {   # その場で変更する
+  - resource "aws_cloudwatch_log_group" "backend" { ... } # 消す
+-/+ resource "aws_dynamodb_table" "cards" { ... }       # 消してから作り直す
 
 Plan: 1 to add, 1 to change, 1 to destroy.
 ```
 
-`-` と `-/+` は特に注意する。RDS（`aws_db_instance.main`）が `-` か `-/+` になっていたら、**データベースの中身が消える**。分からないときは apply せずに Claude Code に理由を聞く。
+`-` と `-/+` は特に注意する。DynamoDB のテーブル（`aws_dynamodb_table.cards`・`counters`）が `-` か `-/+` になっていたら、**カードがすべて消える**。分からないときは apply せずに Claude Code に理由を聞く。
 
 ### 3.5 `infra/` のファイル
 
 | ファイル | 作るもの |
 | --- | --- |
 | `versions.tf` | Terraform・provider の版、state の置き場所、すべてに付けるタグ（`Project = taskapp`） |
-| `variables.tf` | 変えられる値（リージョン、Basic 認証、EC2・RDS の大きさ） |
-| `network.tf` | VPC、パブリック・プライベートサブネット（2 つの AZ）、インターネットへの経路 |
-| `security.tf` | EC2 と RDS のセキュリティグループ |
-| `database.tf` | RDS for PostgreSQL 17（パスワードは Secrets Manager が管理） |
-| `backend.tf` | ECR、EC2 とその IAM ロール、固定 IP |
-| `frontend.tf` | S3、CloudFront、Basic 認証の CloudFront Function |
+| `variables.tf` | 変えられる値（リージョン、Basic 認証、Lambda のメモリ） |
+| `database.tf` | DynamoDB のテーブル（カード・連番）。無料枠に収まる容量を確保する |
+| `backend.tf` | Lambda とその IAM ロール・ログ・関数 URL、CloudFront からだけ呼べるようにする許可 |
+| `frontend.tf` | S3、CloudFront（S3 と Lambda への署名の設定を含む）、Basic 認証の CloudFront Function |
 | `outputs.tf` | URL などの表示する値 |
-| `templates/` | Basic 認証のコード、EC2 でコンテナを起動し直すスクリプト |
+| `templates/` | Basic 認証のコード |
 
 ## 4. AWS CLI と認証の考え方
 
@@ -184,7 +204,7 @@ CLI はまだ認証情報を持っていないので、ここだけはマネジ�
 ### 5.1 アカウントを守る設定（コンソール）
 
 1. ルートユーザーと、今使っている管理者の IAM ユーザーに MFA（スマートフォンの認証アプリ）が設定されているか確認する。なければ設定する
-2. 「Billing and Cost Management」→「Budgets」で、月 50 ドルなどの予算を作り、超えそうなときにメールが届くようにする（思わぬ請求を防ぐ）
+2. 「Billing and Cost Management」→「Budgets」で、月 1 ドルなどの予算を作り、超えそうなときにメールが届くようにする（無料枠の範囲で動かすつもりでも、設定の誤りで料金がかかったときにすぐ気づける）
 
 ### 5.2 IAM Identity Center の準備（コンソール）
 
@@ -194,7 +214,7 @@ CLI はまだ認証情報を持っていないので、ここだけはマネジ�
 2. 「IAM Identity Center」を開き、「有効にする」を押す（組織で有効にするかを聞かれたら、組織のインスタンスを選ぶ）
 3. 「ユーザー」→「ユーザーを追加」で、自分用のユーザーを作る（メールアドレスは自分のもの）
 4. 「許可セット」→「許可セットを作成」→「事前定義された許可セット」で `AdministratorAccess` を選んで作る
-   - Terraform は VPC・EC2・RDS・IAM ロールなどを作るため、学習用の個人アカウントでは管理者権限にしておくのが簡単である
+   - Terraform は Lambda・DynamoDB・CloudFront・IAM ロールなどを作るため、学習用の個人アカウントでは管理者権限にしておくのが簡単である
 5. 「AWS アカウント」→ 自分のアカウントを選び →「ユーザーまたはグループを割り当て」で、3 のユーザーと 4 の許可セットを割り当てる
 6. 届いた招待メールからパスワードを設定し、MFA を登録する
 7. 「設定」（または ダッシュボード）に表示される **AWS アクセスポータルの URL**（`https://d-xxxxxxxxxx.awsapps.com/start`）を控える
@@ -249,7 +269,7 @@ AWS の操作は取り返しがつかないものがあるため、このリポ�
 | 区分 | コマンド | 動き |
 | --- | --- | --- |
 | 自動で実行してよい | `terraform fmt`・`validate`・`plan`・`output`、`aws sts get-caller-identity` | 読むだけ・確認だけなので、確認なしで実行する |
-| 実行前に確認する | `terraform apply`、`scripts/deploy-*.sh`、`aws s3 sync`、`aws ssm send-command` | AWS が変わるので、毎回ユーザーの許可を求める |
+| 実行前に確認する | `terraform apply`、`scripts/deploy-*.sh`、`aws s3 sync`、`aws lambda update-function-code` | AWS が変わるので、毎回ユーザーの許可を求める |
 | 実行しない | `terraform destroy`、`apply -auto-approve`、`apply -destroy`、`state rm` | 必要なときはユーザーが自分で実行する |
 
 あわせて [CLAUDE.md](../CLAUDE.md) で、`apply` の前に必ず `plan` を実行し、作成・変更・削除の件数と、削除・作り直しになるものを見せてから承認を取ることにしている。
@@ -260,7 +280,7 @@ AWS の操作は取り返しがつかないものがあるため、このリポ�
 - 「plan に `-/+` があるけど、なぜ作り直しになるの？」
 - 「plan の内容で問題なければ apply して」
 - 「バックエンドだけデプロイして」
-- 「EC2 のコンテナのログを見て、エラーの原因を調べて」
+- 「Lambda のログを見て、エラーの原因を調べて」
 
 ## 7. 初めてのデプロイ
 
@@ -303,7 +323,7 @@ terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
-15 分ほどかかる（RDS と CloudFront の作成待ち）。終わると `app_url` などの output が表示される。
+5 分ほどかかる（CloudFront の作成待ち）。終わると `app_url` などの output が表示される。
 
 ### 7.6 アプリを載せる
 
@@ -315,12 +335,12 @@ scripts/deploy-frontend.sh
 
 | スクリプト | すること |
 | --- | --- |
-| `deploy-backend.sh` | バックエンドを arm64 の Docker イメージにビルドして ECR に置き、SSM で EC2 に「イメージを取り直してコンテナを起動し直す」よう命令する。起動時に Flyway がテーブルを作る |
+| `deploy-backend.sh` | バックエンドの jar をビルドし、起動スクリプト（`backend/lambda/run.sh`）と一緒に zip にして、Lambda のコードを入れ替える。テーブルは Terraform が作ってあるので、すぐに使える |
 | `deploy-frontend.sh` | 画面をビルドして S3 に置き、CloudFront に残っている古いファイル（キャッシュ）を消す |
 
 ### 7.7 開いて確かめる
 
-最後に表示される URL（`https://xxxxxxxx.cloudfront.net`）をブラウザで開き、`terraform.tfvars` のユーザー名とパスワードでログインする。カードを追加・移動し、再読み込みしても残っていれば完成である。
+最後に表示される URL（`https://xxxxxxxx.cloudfront.net`）をブラウザで開き、`terraform.tfvars` のユーザー名とパスワードでログインする。最初の表示は Lambda で Spring Boot が起動するのを待つため、10 秒ほどかかることがある。カードを追加・移動し、再読み込みしても残っていれば完成である。
 
 ## 8. 2 回目以降のデプロイ
 
@@ -342,22 +362,20 @@ scripts/deploy-frontend.sh
 | `basic_auth_password` の入力を求められる | `infra/terraform.tfvars` がない。[7.3](#73-basic-認証のパスワードを決める) |
 | apply が途中で失敗した | できた分は state に記録されている。原因を直して、もう一度 `plan` → `apply` |
 | `Saved plan is stale` | plan のあとに state が変わった。`terraform plan -out=tfplan` からやり直す |
-| `docker build` が失敗する | Colima が止まっている。`colima start` |
-| 画面は出るが API が 502・504 になる | バックエンドが起動していない。下の方法でログを見る |
+| `./mvnw package` が失敗する | Java 21 が入っていない、またはコードがコンパイルできない。ローカルで `cd backend && ./mvnw test` を確かめる |
+| 画面は出るが API が 502・503・504 になる | バックエンドが起動していない（`deploy-backend.sh` をまだ実行していない、起動に失敗した など）。下の方法でログを見る |
+| カードの追加・編集・移動だけが 403 になる | 画面が `x-amz-content-sha256` ヘッダーを付けていない（古い画面のキャッシュなど）。`scripts/deploy-frontend.sh` をもう一度実行する |
 | 画面が古いまま | CloudFront のキャッシュ。`scripts/deploy-frontend.sh` をもう一度実行する |
 
-EC2 のログは、SSH ではなく SSM で中に入って見る。
+Lambda のログ（Spring Boot が出すログ）は CloudWatch Logs に入る。次で、新しく出たログを流し続けて見られる（止めるときは Ctrl + C）。
 
 ```bash
-aws ssm start-session --profile taskapp --target $(terraform -chdir=infra output -raw backend_instance_id)
-sudo docker logs taskapp-backend
+aws logs tail /aws/lambda/taskapp-backend --follow --profile taskapp
 ```
-
-`start-session` を使うには Session Manager プラグインが必要である（`brew install --cask session-manager-plugin`）。
 
 ## 10. 後片付け
 
-使わなくなったら、料金がかからないようにすべて消す。**DB のデータも消える**。Claude Code は実行しないので、自分で実行する。
+無料枠の範囲で動かしているが、使わなくなったら消しておく。**DB のデータも消える**。Claude Code は実行しないので、自分で実行する。
 
 ```bash
 cd infra

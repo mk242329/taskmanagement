@@ -3,66 +3,55 @@ package com.example.taskapp.card;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-
 /**
- * カード。
+ * カード。日時はすべて UTC で持つ。
  */
-@Entity
-@Table(name = "card")
 public class Card {
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id;
+	private final Long id;
 
-	@Column(nullable = false)
 	private String title;
 
-	@Column(nullable = false)
 	private String description;
 
-	@Column(name = "due_at")
 	private OffsetDateTime dueAt;
 
-	@Column(nullable = false)
 	private boolean strict;
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "list_id", nullable = false)
-	private TaskList list;
+	private String listId;
 
-	@Column(nullable = false)
 	private int position;
 
-	@Column(name = "created_at", nullable = false)
-	private OffsetDateTime createdAt;
+	private final OffsetDateTime createdAt;
 
-	@Column(name = "updated_at", nullable = false)
 	private OffsetDateTime updatedAt;
 
-	protected Card() {
+	/**
+	 * 新しいカードを作る。
+	 */
+	public Card(Long id, String title, String description, OffsetDateTime dueAt, boolean strict, String listId, int position) {
+		this(id, title, description, dueAt, strict, listId, position, OffsetDateTime.now(ZoneOffset.UTC));
 	}
 
-	public Card(String title, String description, OffsetDateTime dueAt, boolean strict, TaskList list, int position) {
-		// GET で返す日時（DB から読んだもの）と形をそろえるため、UTC で作る
-		OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+	private Card(Long id, String title, String description, OffsetDateTime dueAt, boolean strict, String listId, int position,
+			OffsetDateTime now) {
+		this(id, title, description, dueAt, strict, listId, position, now, now);
+	}
+
+	/**
+	 * 保存してあるカードを読み込むときに使う。
+	 */
+	Card(Long id, String title, String description, OffsetDateTime dueAt, boolean strict, String listId, int position,
+			OffsetDateTime createdAt, OffsetDateTime updatedAt) {
+		this.id = id;
 		this.title = title;
 		this.description = description;
-		this.dueAt = dueAt;
+		this.dueAt = toUtc(dueAt);
 		this.strict = strict;
-		this.list = list;
+		this.listId = listId;
 		this.position = position;
-		this.createdAt = now;
-		this.updatedAt = now;
+		this.createdAt = toUtc(createdAt);
+		this.updatedAt = toUtc(updatedAt);
 	}
 
 	/**
@@ -71,7 +60,7 @@ public class Card {
 	public void update(String title, String description, OffsetDateTime dueAt, boolean strict) {
 		this.title = title;
 		this.description = description;
-		this.dueAt = dueAt;
+		this.dueAt = toUtc(dueAt);
 		this.strict = strict;
 		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
 	}
@@ -79,17 +68,28 @@ public class Card {
 	/**
 	 * 別のリスト・別の位置へ移す。
 	 */
-	public void moveTo(TaskList list, int position) {
-		this.list = list;
+	public void moveTo(String listId, int position) {
+		this.listId = listId;
 		this.position = position;
 		this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
 	}
 
 	/**
 	 * ほかのカードの移動に合わせて、リスト内の並び順を詰め直す。カードの内容は変わらないため、更新日時は変えない。
+	 *
+	 * @return 並び順が変わったら true（保存し直す必要がある）
 	 */
-	void renumber(int position) {
+	boolean renumber(int position) {
+		if (this.position == position) {
+			return false;
+		}
 		this.position = position;
+		return true;
+	}
+
+	/** 送られた日時（+09:00 など）を、GET で返す形とそろえるため UTC にする */
+	private static OffsetDateTime toUtc(OffsetDateTime dateTime) {
+		return dateTime == null ? null : dateTime.withOffsetSameInstant(ZoneOffset.UTC);
 	}
 
 	public Long getId() {
@@ -112,8 +112,8 @@ public class Card {
 		return strict;
 	}
 
-	public TaskList getList() {
-		return list;
+	public String getListId() {
+		return listId;
 	}
 
 	public int getPosition() {

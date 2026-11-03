@@ -23,7 +23,7 @@ public record CardResponse(
 				card.getDescription(),
 				card.getDueAt(),
 				card.isStrict(),
-				card.getList().getId(),
+				card.getListId(),
 				card.getPosition(),
 				card.getCreatedAt(),
 				card.getUpdatedAt());

@@ -2,16 +2,16 @@
 name: taskapp
 
 services:
+  # 開発用の DynamoDB（AWS の DynamoDB と同じ API で動く DynamoDB Local）
   db:
-    image: postgres:17
-    environment:
-      POSTGRES_DB: taskapp
-      POSTGRES_USER: taskapp
-      POSTGRES_PASSWORD: taskapp
+    image: amazon/dynamodb-local:3.3.2
+    command: -jar DynamoDBLocal.jar -sharedDb -dbPath /data
+    # ボリュームに書き込めるよう root で動かす（イメージの既定のユーザーには書き込み権限がない）
+    user: root
     ports:
-      - "5432:5432"
+      - "8000:8000"
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - dynamodb-data:/data
 
 volumes:
-  db-data:
+  dynamodb-data:

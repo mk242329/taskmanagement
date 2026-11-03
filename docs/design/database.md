@@ -3,8 +3,9 @@
 作成日：2026年10月5日
 更新日：2026年10月6日（保存先を localStorage から PostgreSQL に変更）
 更新日：2026年10月10日（リマインド通知をやめたため、notified 列を削除）
+更新日：2026年11月4日（AWS の無料枠で動かすため、保存先を PostgreSQL から DynamoDB に変更）
 
-アプリで扱うデータの項目と、PostgreSQL のテーブル定義をまとめる。
+アプリで扱うデータの項目と、DynamoDB のテーブル定義をまとめる。
 
 ## 1. データ項目
 
@@ -21,75 +22,85 @@
 
 入力のルール（文字数など）は [機能要件](../requirements/functional.md) にまとめる。
 
-## 2. ER図
+## 2. データの関係
 
 ```mermaid
 erDiagram
     LIST ||--o{ CARD : "含む"
     LIST {
-        varchar id PK "todo / doing / done"
-        varchar name "未着手 / 作業中 / 完了"
-        integer display_order "左から何番目か"
+        string id "todo / doing / done"
+        string name "未着手 / 作業中 / 完了"
+        number displayOrder "左から何番目か"
     }
     CARD {
-        bigint id PK "カードを区別する番号"
-        varchar title "タイトル（必須）"
-        varchar description "説明文"
-        timestamptz due_at "期限"
+        number id PK "カードを区別する番号"
+        string title "タイトル（必須）"
+        string description "説明文"
+        string dueAt "期限"
         boolean strict "時間厳守かどうか"
-        varchar list_id FK "所属するリスト"
-        integer position "リスト内の並び順"
-        timestamptz created_at "作成日時"
-        timestamptz updated_at "更新日時"
+        string listId "所属するリスト"
+        number position "リスト内の並び順"
+        string createdAt "作成日時"
+        string updatedAt "更新日時"
     }
 ```
 
 - 1つのリストには、0枚以上のカードが入る
 - 1枚のカードは、必ず1つのリストに入る
-- リストは3つで固定。Flyway の最初のテーブル作成 SQL で登録し、アプリから追加・変更・削除はしない
+- リストは3つで固定。データベースには置かず、バックエンドのコード（`TaskList`）で持つ。アプリから追加・変更・削除はしない
 
 ## 3. テーブル定義
 
-テーブル名・列名は小文字のスネークケース（`due_at` など）で書く。Java のクラスでは `dueAt` のようにキャメルケースにする。
+DynamoDB は、決まった列を持つ「表」ではなく、キーで探す「項目（item）」の集まりを保存する。項目ごとに持つ属性（列にあたるもの）は自由だが、このアプリではすべてのカードが同じ属性を持つようにする。属性名は Java のクラスと同じキャメルケース（`dueAt` など）で書く。
 
-### 3.1 list（リスト）
+テーブルは AWS では Terraform（`infra/database.tf`）が作り、ローカルとテストではバックエンドの起動時に自動で作る（`LocalTableCreator`）。
 
-| 列名 | 型 | NULL | 内容 |
-| --- | --- | --- | --- |
-| id | VARCHAR(10) | 不可 | 主キー |
-| name | VARCHAR(10) | 不可 | リストの名前 |
-| display_order | INTEGER | 不可 | 左から何番目か |
+### 3.1 リスト（コードで持つ）
 
-登録するデータ：
-
-| id | name | display_order |
+| id | name | displayOrder |
 | --- | --- | --- |
 | `todo` | 未着手 | 1 |
 | `doing` | 作業中 | 2 |
 | `done` | 完了 | 3 |
 
-### 3.2 card（カード）
+### 3.2 taskapp-cards（カード）
 
-| 列名 | 型 | NULL | 初期値 | 内容 |
-| --- | --- | --- | --- | --- |
-| id | BIGINT | 不可 | 自動で連番 | 主キー（`GENERATED ALWAYS AS IDENTITY`） |
-| title | VARCHAR(50) | 不可 | ― | タイトル。1〜50文字 |
-| description | VARCHAR(500) | 不可 | `''` | 説明文。未入力は空の文字列 |
-| due_at | TIMESTAMPTZ | 可 | NULL | 期限。未入力は NULL |
-| strict | BOOLEAN | 不可 | `false` | 時間厳守なら `true` |
-| list_id | VARCHAR(10) | 不可 | `'todo'` | 所属するリストの id（外部キー → list.id） |
-| position | INTEGER | 不可 | ― | リスト内の並び順。0 から始まり、上から順に 0, 1, 2 … |
-| created_at | TIMESTAMPTZ | 不可 | 現在日時 | 作成した日時 |
-| updated_at | TIMESTAMPTZ | 不可 | 現在日時 | 最後に変更した日時 |
+キー（パーティションキー）は `id`。
 
-- タイトルが空や空白だけでないかは、バックエンドの入力チェック（Bean Validation）で確かめる
-- 期限は日本時間で入力するが、タイムゾーン付きの型（TIMESTAMPTZ）で保存する
-- カードを別のリストへ移したり並び替えたりしたときは、移す前と移した先のリストの `position` を振り直す。1つのトランザクションでまとめて更新し、途中で失敗したら元に戻す
+| 属性名 | 型 | なしでもよいか | 内容 |
+| --- | --- | --- | --- |
+| id | 数値（N） | 不可 | キー。1 から順に振る（3.3 の連番を使う） |
+| title | 文字列（S） | 不可 | タイトル。1〜50文字 |
+| description | 文字列（S） | 不可 | 説明文。未入力は空の文字列 |
+| dueAt | 文字列（S） | 可 | 期限（UTC の ISO 8601。例：`2026-10-08T09:00Z`）。未入力のときは属性を入れない |
+| strict | 真偽値（BOOL） | 不可 | 時間厳守なら `true` |
+| listId | 文字列（S） | 不可 | 所属するリストの id（`todo`・`doing`・`done`） |
+| position | 数値（N） | 不可 | リスト内の並び順。0 から始まり、上から順に 0, 1, 2 … |
+| createdAt | 文字列（S） | 不可 | 作成した日時（UTC の ISO 8601） |
+| updatedAt | 文字列（S） | 不可 | 最後に変更した日時（UTC の ISO 8601） |
+
+### 3.3 taskapp-counters（連番）
+
+DynamoDB には PostgreSQL の `IDENTITY` のような自動の連番がないため、数を数える項目を 1 つ置き、カードを追加するたびに 1 増やして id にする。
+
+| 属性名 | 型 | 内容 |
+| --- | --- | --- |
+| name | 文字列（S） | キー。カードの連番は `card` |
+| lastId | 数値（N） | 最後に使った id |
+
+### 3.4 入力チェックと更新のしかた
+
+- タイトルが空や空白だけでないか、文字数、存在するリストかは、バックエンドの入力チェック（Bean Validation・`CardService`）で確かめる。DynamoDB には型や長さの制約を付けられないため
+- 期限は日本時間で入力するが、UTC に直して保存する
+- 一覧はすべてのカードを読み（Scan）、バックエンドでリストの表示順 → リスト内の並び順に並べる。個人用でカードの枚数が少ないため、並べ替え用の索引は作らない
+- 読み込みは「強い整合性」にし、書いた直後の内容を必ず読めるようにする
+- カードを別のリストへ移したり、並び替えたり、削除したりしたときは、並び順が変わったカードの `position` を振り直す。1つのトランザクション（`TransactWriteItems`）でまとめて書き、途中で失敗したら元に戻す
 
 優先度は保存しない。時間が経つと変わるため、表示のたびに期限と時間厳守から決める（[データフロー](data-flow.md) の「4. 期限切れ・優先度の判定」）。
 
 ## 4. 保存方法
 
-- 保存先は PostgreSQL
+- 保存先は DynamoDB。開発中は自分のパソコンの DynamoDB Local（Docker Compose）、AWS では DynamoDB を使う
 - 画面からは直接データベースに触らず、必ずバックエンドの API を通して読み書きする（API の一覧は [データフロー](data-flow.md) の「3. API 一覧」）
-- テーブルの作成・変更は Flyway の SQL ファイル（`backend/src/main/resources/db/migration/`）で管理する。データベースを直接書き換えて変更しない
+- AWS のテーブルは Terraform（`infra/database.tf`）で管理する。マネジメントコンソールで直接変更しない
+- AWS の無料枠に収まるよう、テーブルは「プロビジョンド」（決まった量の読み書きを確保する）にし、2 つのテーブルの合計を読み込み・書き込みとも 25 キャパシティユニット以下にしている

@@ -1,132 +1,125 @@
-# バックエンド：ECR（イメージ置き場）と、それを Docker で動かす EC2
+# バックエンド：Spring Boot を Lambda で動かす
+# Lambda Web Adapter（AWS が公開しているレイヤー）が、受け取ったリクエストを Lambda の中の Spring Boot（8080）に HTTP で渡す。
+# そのため、Spring Boot のコードは Lambda 用に書き換えずに動く。
+# リクエストがないときは何も動かず、料金もかからない（最初のリクエストで起動するため、数秒待つことがある）
 
-resource "aws_ecr_repository" "backend" {
-  name = "${var.project}-backend"
-  # destroy のときにイメージが残っていても消せるようにする
-  force_delete = true
+locals {
+  backend_function_name = "${var.project}-backend"
+  # Lambda Web Adapter のレイヤー（arm64 用）。https://github.com/awslabs/aws-lambda-web-adapter
+  web_adapter_layer_arn = "arn:aws:lambda:${var.region}:753240598075:layer:LambdaAdapterLayerArm64:30"
 }
 
-# 古いイメージがたまらないよう、新しい 5 つだけ残す
-resource "aws_ecr_lifecycle_policy" "backend" {
-  repository = aws_ecr_repository.backend.name
-  policy = jsonencode({
-    rules = [{
-      rulePriority = 1
-      description  = "Keep the latest 5 images"
-      selection = {
-        tagStatus   = "any"
-        countType   = "imageCountMoreThan"
-        countNumber = 5
-      }
-      action = { type = "expire" }
-    }]
-  })
-}
-
-# EC2 が使う IAM ロール：SSM で操作される・ECR からイメージを取る・DB のパスワードを読む
+# Lambda が使う IAM ロール：ログを書く・DynamoDB のテーブルを読み書きする
 resource "aws_iam_role" "backend" {
-  name = "${var.project}-backend"
+  name = local.backend_function_name
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
-      Principal = { Service = "ec2.amazonaws.com" }
+      Principal = { Service = "lambda.amazonaws.com" }
       Action    = "sts:AssumeRole"
     }]
   })
 }
 
-resource "aws_iam_role_policy_attachment" "backend_ssm" {
-  role       = aws_iam_role.backend.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
-resource "aws_iam_role_policy_attachment" "backend_ecr" {
-  role       = aws_iam_role.backend.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-}
-
-resource "aws_iam_role_policy" "backend_db_secret" {
-  name = "read-db-secret"
+resource "aws_iam_role_policy" "backend" {
+  name = "logs-and-dynamodb"
   role = aws_iam_role.backend.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = "secretsmanager:GetSecretValue"
-      Resource = aws_db_instance.main.master_user_secret[0].secret_arn
-    }]
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "${aws_cloudwatch_log_group.backend.arn}:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:Scan",
+        ]
+        Resource = [aws_dynamodb_table.cards.arn, aws_dynamodb_table.counters.arn]
+      },
+    ]
   })
 }
 
-resource "aws_iam_instance_profile" "backend" {
-  name = "${var.project}-backend"
-  role = aws_iam_role.backend.name
+# ログの置き場所。ログは無料枠（月 5 GB）に収まるよう、7 日で消す
+resource "aws_cloudwatch_log_group" "backend" {
+  name              = "/aws/lambda/${local.backend_function_name}"
+  retention_in_days = 7
 }
 
-# Amazon Linux 2023（arm64）の最新の AMI
-data "aws_ssm_parameter" "al2023_arm64" {
-  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64"
-}
+# 最初に作るときだけ使う仮のコード。本物は scripts/deploy-backend.sh がアップロードする
+data "archive_file" "backend_placeholder" {
+  type        = "zip"
+  output_path = "${path.module}/.terraform/backend-placeholder.zip"
 
-locals {
-  # EC2 の中に置く、イメージを取り直してコンテナを起動し直すスクリプト
-  restart_script = templatefile("${path.module}/templates/restart.sh.tftpl", {
-    region        = var.region
-    registry      = split("/", aws_ecr_repository.backend.repository_url)[0]
-    image         = "${aws_ecr_repository.backend.repository_url}:latest"
-    db_host       = aws_db_instance.main.address
-    db_name       = aws_db_instance.main.db_name
-    db_secret_arn = aws_db_instance.main.master_user_secret[0].secret_arn
-  })
-}
-
-resource "aws_instance" "backend" {
-  ami                    = data.aws_ssm_parameter.al2023_arm64.value
-  instance_type          = var.ec2_instance_type
-  subnet_id              = aws_subnet.public[0].id
-  vpc_security_group_ids = [aws_security_group.backend.id]
-  iam_instance_profile   = aws_iam_instance_profile.backend.name
-
-  # IMDSv2 だけを許可する（インスタンスの認証情報を盗まれにくくする）
-  metadata_options {
-    http_tokens = "required"
+  source {
+    filename = "run.sh"
+    content  = "#!/bin/bash\necho 'scripts/deploy-backend.sh でバックエンドをデプロイしてください' >&2\nexit 1\n"
   }
+}
 
-  root_block_device {
-    volume_type = "gp3"
-    volume_size = 20
-    encrypted   = true
+resource "aws_lambda_function" "backend" {
+  function_name = local.backend_function_name
+  role          = aws_iam_role.backend.arn
+  runtime       = "java21"
+  architectures = ["arm64"]
+  # Lambda Web Adapter が実行する起動スクリプト（backend/lambda/run.sh）
+  handler = "run.sh"
+  layers  = [local.web_adapter_layer_arn]
+
+  filename         = data.archive_file.backend_placeholder.output_path
+  source_code_hash = data.archive_file.backend_placeholder.output_base64sha256
+
+  # メモリを増やすと CPU も増え、起動が速くなる。無料枠は「メモリ（GB）× 秒」で月 40 万までなので、個人で使う分には十分収まる
+  memory_size = var.backend_memory_mb
+  timeout     = 30
+
+  environment {
+    variables = {
+      AWS_LAMBDA_EXEC_WRAPPER = "/opt/bootstrap"
+      # Spring Boot の起動を Lambda の初期化（10 秒まで）の外で待つ。起動に 10 秒以上かかっても失敗しない
+      AWS_LWA_ASYNC_INIT     = "true"
+      SPRING_PROFILES_ACTIVE = "aws"
+      TASKAPP_CARDS_TABLE    = aws_dynamodb_table.cards.name
+      TASKAPP_COUNTERS_TABLE = aws_dynamodb_table.counters.name
+    }
   }
-
-  user_data = <<-EOF
-    #!/bin/bash
-    set -eux
-    dnf install -y docker jq
-    systemctl enable --now docker
-    mkdir -p /opt/taskapp
-    echo '${base64encode(local.restart_script)}' | base64 -d > /opt/taskapp/restart.sh
-    chmod 700 /opt/taskapp/restart.sh
-    # 初回はまだイメージが push されていないことがあるので、失敗しても止めない
-    /opt/taskapp/restart.sh || true
-  EOF
-
-  # restart.sh の中身が変わったら、EC2 を作り直して反映する
-  user_data_replace_on_change = true
 
   lifecycle {
-    # 新しい AMI が出るたびに EC2 が作り直されないようにする
-    ignore_changes = [ami]
+    # コードは scripts/deploy-backend.sh が入れ替えるので、Terraform では仮のコードに戻さない
+    ignore_changes = [filename, source_code_hash]
   }
 
-  tags = { Name = "${var.project}-backend" }
+  depends_on = [aws_cloudwatch_log_group.backend, aws_iam_role_policy.backend]
 }
 
-# EC2 を止めて起動し直してもアドレスが変わらないよう、固定の IP を付ける
-resource "aws_eip" "backend" {
-  instance = aws_instance.backend.id
-  domain   = "vpc"
-  tags     = { Name = "${var.project}-backend" }
+# CloudFront から呼ぶための URL。AWS_IAM にして、署名のないリクエスト（CloudFront を通らないもの）は断る
+resource "aws_lambda_function_url" "backend" {
+  function_name      = aws_lambda_function.backend.function_name
+  authorization_type = "AWS_IAM"
+}
 
-  depends_on = [aws_internet_gateway.main]
+# この CloudFront のディストリビューションからだけ、関数 URL を呼べるようにする（2 つとも必要）
+resource "aws_lambda_permission" "cloudfront_url" {
+  statement_id           = "AllowCloudFrontInvokeFunctionUrl"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.backend.function_name
+  principal              = "cloudfront.amazonaws.com"
+  source_arn             = aws_cloudfront_distribution.main.arn
+  function_url_auth_type = "AWS_IAM"
+}
+
+resource "aws_lambda_permission" "cloudfront_invoke" {
+  statement_id  = "AllowCloudFrontInvokeFunction"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.backend.function_name
+  principal     = "cloudfront.amazonaws.com"
+  source_arn    = aws_cloudfront_distribution.main.arn
 }
