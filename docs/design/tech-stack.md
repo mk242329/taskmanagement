@@ -137,7 +137,8 @@ taskmanagement/
     │   ├── database.md          … データベース設計
     │   ├── data-flow.md         … データフロー
     │   └── tech-stack.md        … 技術スタック
-    └── test-spec.md             … テスト仕様書
+    ├── test-spec.md             … テスト仕様書
+    └── aws-deploy-guide.md      … AWS デプロイ入門ガイド
 ```
 
 バックエンドは、層（controller・service など）ごとではなく機能（`card` など）ごとにパッケージを分ける。プロトタイプ（`index.html`・`style.css`・`script.js`）は今はリポジトリの直下にあり、`prototype/` に移す予定。

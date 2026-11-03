@@ -101,6 +101,7 @@ Next.js は使わず、React は Vite で作るブラウザだけで動く画面
 | | [データフロー](docs/design/data-flow.md) | データの流れ、API 一覧、期限切れ・優先度の判定条件 |
 | | [技術スタック](docs/design/tech-stack.md) | 使う技術とバージョン、開発環境、ファイル構成 |
 | テスト | [テスト仕様書](docs/test-spec.md) | 機能と非機能要件を確認する手順 |
+| デプロイ | [AWS デプロイ入門ガイド](docs/aws-deploy-guide.md) | AWS・Terraform・IaC の解説、認証の設定、デプロイと後片付けの手順 |
 | 開発ルール | [CLAUDE.md](CLAUDE.md) | イシュー・ブランチ・PR の進め方、開発サーバーのポート |
 
 ## リポジトリの構成
@@ -279,6 +280,8 @@ PR は、両方のジョブが成功してからマージします。
 ## AWS へのデプロイ
 
 AWS の環境は `infra/` の Terraform で作り、アプリは `scripts/deploy-*.sh` で載せます。マネジメントコンソールは使いません。
+
+AWS・Terraform を初めて使うときや、認証（`taskapp` プロファイル）の設定から始めるときは、[AWS デプロイ入門ガイド](docs/aws-deploy-guide.md) を参照してください。
 
 ```mermaid
 flowchart LR
