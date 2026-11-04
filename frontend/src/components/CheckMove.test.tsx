@@ -72,9 +72,7 @@ test('未着手 → 作業中 → 完了 と一番下へ移り、完了のチェ
 
   await userEvent.click(checkbox())
   // 移動の API が返り、一覧が置き換わるのを待つ
-  await waitFor(() =>
-    expect(titlesIn('作業中')).toEqual(['資料作成', '課題A']),
-  )
+  await waitFor(() => expect(titlesIn('作業中')).toEqual(['資料作成', '課題A']))
   expect(titlesIn('未着手')).toEqual([])
   expect(checkbox()).not.toBeChecked()
   expect(
@@ -82,16 +80,12 @@ test('未着手 → 作業中 → 完了 と一番下へ移り、完了のチェ
   ).toHaveTextContent('作業中 (2)')
 
   await userEvent.click(checkbox())
-  await waitFor(() =>
-    expect(titlesIn('完了')).toEqual(['本を返す', '課題A']),
-  )
+  await waitFor(() => expect(titlesIn('完了')).toEqual(['本を返す', '課題A']))
   expect(titlesIn('作業中')).toEqual(['資料作成'])
   expect(checkbox()).toBeChecked()
 
   await userEvent.click(checkbox())
-  await waitFor(() =>
-    expect(titlesIn('作業中')).toEqual(['資料作成', '課題A']),
-  )
+  await waitFor(() => expect(titlesIn('作業中')).toEqual(['資料作成', '課題A']))
   expect(titlesIn('完了')).toEqual(['本を返す'])
   expect(checkbox()).not.toBeChecked()
 
