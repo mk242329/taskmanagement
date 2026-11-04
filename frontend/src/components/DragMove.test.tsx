@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import type { Card, ListId } from '../api/cards'
 import { LISTS } from '../domain/card'
 import { makeCard } from '../test/cards'
@@ -149,9 +156,12 @@ test('同じリストの中で、一番下のカードを一番上へ移すと�
   await dragWithKeyboard('C', ['ArrowUp', 'ArrowUp'])
 
   expect(titlesIn('未着手')).toEqual(['C', 'A', 'B'])
-  expect(moveRequests(fetchMock)).toEqual([
-    { url: '/api/cards/3/move', body: { listId: 'todo', position: 0 } },
-  ])
+  // 表示は先に変わり、保存の API はあとから呼ばれるので、呼ばれるのを待つ
+  await waitFor(() =>
+    expect(moveRequests(fetchMock)).toEqual([
+      { url: '/api/cards/3/move', body: { listId: 'todo', position: 0 } },
+    ]),
+  )
 })
 
 test('別のリストへドラッグすると、そのリストに移り保存する。完了へ移すとチェックが付く', async () => {
@@ -168,16 +178,19 @@ test('別のリストへドラッグすると、そのリストに移り保存�
   expect(
     within(screen.getByRole('region', { name: '作業中' })).getByRole('heading'),
   ).toHaveTextContent('作業中 (2)')
+  await waitFor(() => expect(moveRequests(fetchMock)).toHaveLength(1))
 
   // 空の「完了」へ
   await dragWithKeyboard('A', ['ArrowRight'])
   expect(titlesIn('完了')).toEqual(['A'])
   expect(screen.getByRole('checkbox', { name: 'A の完了' })).toBeChecked()
 
-  expect(moveRequests(fetchMock).map((r) => r.body.listId)).toEqual([
-    'doing',
-    'done',
-  ])
+  await waitFor(() =>
+    expect(moveRequests(fetchMock).map((r) => r.body.listId)).toEqual([
+      'doing',
+      'done',
+    ]),
+  )
 })
 
 test('動かさずに置いたときは保存しない', async () => {
