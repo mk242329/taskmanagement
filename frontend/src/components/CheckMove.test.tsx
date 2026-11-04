@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Card, ListId } from '../api/cards'
 import { LISTS } from '../domain/card'
@@ -71,20 +71,27 @@ test('未着手 → 作業中 → 完了 と一番下へ移り、完了のチェ
   expect(checkbox()).not.toBeChecked()
 
   await userEvent.click(checkbox())
+  // 移動の API が返り、一覧が置き換わるのを待つ
+  await waitFor(() =>
+    expect(titlesIn('作業中')).toEqual(['資料作成', '課題A']),
+  )
   expect(titlesIn('未着手')).toEqual([])
-  expect(titlesIn('作業中')).toEqual(['資料作成', '課題A'])
   expect(checkbox()).not.toBeChecked()
   expect(
     within(screen.getByRole('region', { name: '作業中' })).getByRole('heading'),
   ).toHaveTextContent('作業中 (2)')
 
   await userEvent.click(checkbox())
+  await waitFor(() =>
+    expect(titlesIn('完了')).toEqual(['本を返す', '課題A']),
+  )
   expect(titlesIn('作業中')).toEqual(['資料作成'])
-  expect(titlesIn('完了')).toEqual(['本を返す', '課題A'])
   expect(checkbox()).toBeChecked()
 
   await userEvent.click(checkbox())
-  expect(titlesIn('作業中')).toEqual(['資料作成', '課題A'])
+  await waitFor(() =>
+    expect(titlesIn('作業中')).toEqual(['資料作成', '課題A']),
+  )
   expect(titlesIn('完了')).toEqual(['本を返す'])
   expect(checkbox()).not.toBeChecked()
 
@@ -109,7 +116,11 @@ test('期限切れのカードを完了へ移すと、赤色の表示が消え�
   )
   await userEvent.click(screen.getByRole('checkbox', { name: '課題A の完了' }))
 
-  expect(screen.getByText('課題A').closest('.card')).not.toHaveClass('overdue')
+  await waitFor(() =>
+    expect(screen.getByText('課題A').closest('.card')).not.toHaveClass(
+      'overdue',
+    ),
+  )
 })
 
 test('移動に失敗したら、カードはそのままでメッセージを表示する', async () => {

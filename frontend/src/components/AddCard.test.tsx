@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Card, CardCreateInput } from '../api/cards'
 import { makeCard } from '../test/cards'
@@ -53,6 +53,13 @@ async function openAddDialog(listName: string) {
   return screen.getByRole('dialog', { name: 'タスクの追加' })
 }
 
+/** 保存の API が返り、ダイアログが閉じるのを待つ */
+async function waitForSaved() {
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+  )
+}
+
 test('「＋ タスクを追加」で、空の入力欄の追加ウィンドウが開く', async () => {
   // T-02-01・T-02-02
   mockApi([])
@@ -93,6 +100,7 @@ test('入力して保存すると、ウィンドウが閉じてリストの一�
   })
   await userEvent.click(within(dialog).getByLabelText('時間厳守'))
   await userEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+  await waitForSaved()
 
   expect(postedBodies(fetchMock)).toEqual([
     {
@@ -126,6 +134,7 @@ test('「作業中」「完了」の追加ボタンからは、そのリスト�
       `${name}のタスク`,
     )
     await userEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+    await waitForSaved()
     const list = screen.getByRole('region', { name })
     expect(within(list).getByText(`${name}のタスク`)).toBeInTheDocument()
   }
@@ -179,6 +188,7 @@ test('タイトルに誤りがあるときはエラーを表示して保存せ�
   await userEvent.clear(title)
   await userEvent.type(title, '課題A')
   await userEvent.click(save)
+  await waitForSaved()
   expect(postedBodies(fetchMock)).toHaveLength(1)
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   expect(screen.getByText('課題A')).toBeInTheDocument()
@@ -221,8 +231,10 @@ test('API が入力の誤りを返したら、タイトルの下にメッセー�
   await userEvent.type(title, '課題A')
   await userEvent.click(within(dialog).getByRole('button', { name: '保存' }))
 
-  expect(title).toHaveAccessibleDescription(
-    'タイトルは50文字以内で入力してください',
+  await waitFor(() =>
+    expect(title).toHaveAccessibleDescription(
+      'タイトルは50文字以内で入力してください',
+    ),
   )
   expect(screen.getByRole('dialog')).toBeInTheDocument()
 })

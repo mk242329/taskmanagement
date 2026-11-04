@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Card, CardUpdateInput } from '../api/cards'
 import { toLocalInput } from '../domain/card'
@@ -54,6 +54,13 @@ async function openEditDialog(title: string) {
 
 const DUE = new Date(2026, 9, 7, 18, 30).toISOString()
 
+/** 保存の API が返り、ダイアログが閉じるのを待つ */
+async function waitForSaved() {
+  await waitFor(() =>
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+  )
+}
+
 test('カードをクリックすると、今の内容が入った編集ウィンドウが開く', async () => {
   // T-04-01（「削除」ボタンは F-04 で追加する）
   mockApi([
@@ -94,6 +101,7 @@ test('内容を変えて保存すると、ウィンドウが閉じてカード�
   })
   await userEvent.click(within(dialog).getByLabelText('時間厳守'))
   await userEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+  await waitForSaved()
 
   expect(putRequests(fetchMock)).toEqual([
     {
@@ -128,6 +136,7 @@ test('期限を空にして保存すると、期限の欄が表示されなく�
     target: { value: '' },
   })
   await userEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+  await waitForSaved()
 
   expect(putRequests(fetchMock)[0].body.dueAt).toBeNull()
   const card = screen.getByTestId('card')
@@ -146,6 +155,7 @@ test('期限を触らずに保存すると、今の期限をそのまま送る',
   const dialog = await openEditDialog('課題A')
   await userEvent.type(within(dialog).getByLabelText('説明文'), 'メモ')
   await userEvent.click(within(dialog).getByRole('button', { name: '保存' }))
+  await waitForSaved()
 
   expect(putRequests(fetchMock)[0].body.dueAt).toBe(withSeconds)
 })
