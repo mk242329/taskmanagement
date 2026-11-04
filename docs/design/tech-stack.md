@@ -93,7 +93,7 @@ Next.js は今回使わない。React は Vite で作る、ブラウザだけで
 
 | 項目 | 内容 | 無料枠（毎月） |
 | --- | --- | --- |
-| 入口・HTTPS・Basic 認証 | CloudFront（Basic 認証は CloudFront Functions） | 1 TB の転送、1,000 万リクエスト、関数 200 万回 |
+| 入口・HTTPS・IP アドレスの確認・Basic 認証 | CloudFront（IP アドレスの確認と Basic 認証は CloudFront Functions） | 1 TB の転送、1,000 万リクエスト、関数 200 万回 |
 | 画面のファイル | S3 | 無料枠の対象外だが、数 MB のため月 1 円未満 |
 | サーバー | Lambda（Java 21、arm64）＋ Lambda Web Adapter（レイヤー、版 30）。Spring Boot をそのまま動かす | 100 万リクエスト、40 万 GB 秒 |
 | データベース | DynamoDB（プロビジョンド） | 読み込み・書き込み各 25 キャパシティユニット、25 GB |

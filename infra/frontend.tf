@@ -49,12 +49,14 @@ resource "aws_s3_bucket_policy" "frontend" {
   })
 }
 
-# ログイン機能のないアプリなので、入口で Basic 認証をかける
+# ログイン機能のないアプリなので、入口で IP アドレスを確かめ、Basic 認証をかける
+# （AWS WAF でも IP アドレスで絞れるが、月 5 ドルほどかかるため CloudFront Function で行う）
 resource "aws_cloudfront_function" "basic_auth" {
   name    = "${var.project}-basic-auth"
   runtime = "cloudfront-js-2.0"
   publish = true
   code = templatefile("${path.module}/templates/basic-auth.js.tftpl", {
+    allowed_ips = jsonencode(var.allowed_ips)
     credentials = base64encode("${var.basic_auth_user}:${var.basic_auth_password}")
   })
 }

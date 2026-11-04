@@ -287,7 +287,7 @@ AWS・Terraform を初めて使うときや、認証（`taskapp` プロファイ
 
 ```mermaid
 flowchart LR
-    Browser[ブラウザ] --> CF[CloudFront<br>Basic 認証]
+    Browser[ブラウザ] --> CF[CloudFront<br>IP アドレスの確認・Basic 認証]
     CF -- "/api/* 以外" --> S3[(S3<br>画面)]
     CF -- "/api/*" --> Lambda[Lambda<br>Spring Boot]
     Lambda --> DDB[(DynamoDB)]
@@ -303,13 +303,13 @@ flowchart LR
 ```bash
 aws sso login --profile taskapp
 scripts/infra-init.sh                                   # state 用の S3 バケットを作り、terraform init する
-cp infra/terraform.tfvars.example infra/terraform.tfvars  # Basic 認証のパスワードを書く
+cp infra/terraform.tfvars.example infra/terraform.tfvars  # Basic 認証のパスワードと、自分の PC の IP アドレスを書く
 cd infra && terraform plan -out=tfplan                  # 作られるものを確認する
 terraform apply tfplan                                  # 5 分ほどかかる（CloudFront の作成待ち）
 cd .. && scripts/deploy-backend.sh && scripts/deploy-frontend.sh
 ```
 
-最後に表示される URL を開き、`terraform.tfvars` に書いたユーザー名とパスワードでログインします。
+最後に表示される URL を開き、`terraform.tfvars` に書いたユーザー名とパスワードでログインします。`allowed_ips` に書いた IP アドレス以外からは 403 になります。自宅の回線などは IP アドレスが変わることがあるので、開けなくなったら `curl -4 https://checkip.amazonaws.com` で今の IP アドレスを調べて `allowed_ips` を書き換え、`terraform plan` → `terraform apply` し直します。
 
 ### コードを変えたあと
 

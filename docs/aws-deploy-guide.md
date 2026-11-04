@@ -25,7 +25,7 @@ AWS・Terraform を初めて使う人が、このアプリを AWS 上で動か�
 | 項目 | 内容 |
 | --- | --- |
 | 対象 | AWS・Terraform・IaC を使ったことがない人 |
-| ゴール | ブラウザで CloudFront の URL を開き、Basic 認証のあとにボードが表示され、カードの追加・移動が保存される |
+| ゴール | 自分の PC のブラウザで CloudFront の URL を開き、Basic 認証のあとにボードが表示され、カードの追加・移動が保存される |
 | 用意するもの | AWS アカウント（管理者の IAM ユーザーでコンソールにログインできる）、Mac、このリポジトリ |
 | 必要なツール | AWS CLI v2、Terraform 1.10 以上、Java 21（バックエンドのビルド）、Node.js 24（画面のビルド）（`brew install awscli hashicorp/tap/terraform`） |
 | 所要時間 | 認証の設定に 30 分、初回のデプロイに 20 分ほど（うち 5 分ほどは CloudFront の作成待ち） |
@@ -48,7 +48,7 @@ AWS（Amazon Web Services）は、サーバー・データベース・ストレ�
 
 ```mermaid
 flowchart LR
-    Browser[ブラウザ] --> CF[CloudFront<br>Basic 認証]
+    Browser[ブラウザ] --> CF[CloudFront<br>IP アドレスの確認・Basic 認証]
     CF -- "/api/* 以外" --> S3[(S3<br>画面)]
     CF -- "/api/*（署名付き）" --> Lambda[Lambda<br>Spring Boot]
     Lambda --> DDB[(DynamoDB)]
@@ -57,7 +57,7 @@ flowchart LR
 
 | サービス | 役割 | 自分のパソコンでは |
 | --- | --- | --- |
-| CloudFront | 入口。HTTPS で受け付け、Basic 認証をかけ、`/api/*` は Lambda へ、それ以外は S3 へ振り分ける | Vite の開発サーバー（5173）の `/api` 転送 |
+| CloudFront | 入口。HTTPS で受け付け、許可した IP アドレスか確かめて Basic 認証をかけ、`/api/*` は Lambda へ、それ以外は S3 へ振り分ける | Vite の開発サーバー（5173）の `/api` 転送 |
 | S3 | ビルドした画面のファイル（HTML・JS・CSS）を置く場所 | `frontend/dist` |
 | Lambda | リクエストが来たときだけ動くサーバー。Spring Boot をそのまま動かす | `./mvnw spring-boot:run`（8080） |
 | Lambda Web Adapter | Lambda に届いたリクエストを、中で動いている Spring Boot に HTTP で渡す仕組み（AWS が公開している「レイヤー」） | なし |
@@ -170,12 +170,12 @@ Plan: 1 to add, 1 to change, 1 to destroy.
 | ファイル | 作るもの |
 | --- | --- |
 | `versions.tf` | Terraform・provider の版、state の置き場所、すべてに付けるタグ（`Project = taskapp`） |
-| `variables.tf` | 変えられる値（リージョン、Basic 認証、Lambda のメモリ） |
+| `variables.tf` | 変えられる値（リージョン、Basic 認証、許可する IP アドレス、Lambda のメモリ） |
 | `database.tf` | DynamoDB のテーブル（カード・連番）。無料枠に収まる容量を確保する |
 | `backend.tf` | Lambda とその IAM ロール・ログ・関数 URL、CloudFront からだけ呼べるようにする許可 |
-| `frontend.tf` | S3、CloudFront（S3 と Lambda への署名の設定を含む）、Basic 認証の CloudFront Function |
+| `frontend.tf` | S3、CloudFront（S3 と Lambda への署名の設定を含む）、IP アドレスの確認と Basic 認証の CloudFront Function |
 | `outputs.tf` | URL などの表示する値 |
-| `templates/` | Basic 認証のコード |
+| `templates/` | IP アドレスの確認と Basic 認証のコード |
 
 ## 4. AWS CLI と認証の考え方
 
@@ -300,13 +300,21 @@ scripts/infra-init.sh
 
 state を置く S3 バケット `taskapp-tfstate-<アカウント ID>` がなければ作り（過去の版を残す設定付き）、`terraform init` でそこにつなぐ。最初に 1 回だけ実行する。
 
-### 7.3 Basic 認証のパスワードを決める
+### 7.3 Basic 認証のパスワードと、開いてよい IP アドレスを決める
 
 ```bash
 cp infra/terraform.tfvars.example infra/terraform.tfvars
 ```
 
 `infra/terraform.tfvars` を開き、`basic_auth_password` を 12 文字以上のパスワードに書き換える。このファイルは Git に入らない。
+
+続けて、`allowed_ips` を自分の PC の IP アドレスに書き換える。今の IP アドレスは次で分かる。
+
+```bash
+curl -4 https://checkip.amazonaws.com
+```
+
+ここに書いた IP アドレス以外からのアクセスは、CloudFront が 403 で断る。IP アドレスで絞るサービスには AWS WAF もあるが、月 5 ドルほどかかるため、Basic 認証と同じ CloudFront Function で確かめている。CloudFront は IPv4 だけで受け付ける設定なので、書くのは IPv4 のアドレスでよい。
 
 ### 7.4 作られるものを確認する
 
@@ -359,8 +367,9 @@ scripts/deploy-frontend.sh
 | `Token has expired`、`Error when retrieving token from sso` | 認証が切れている。`aws sso login --profile taskapp` |
 | `The config profile (taskapp) could not be found` | プロファイルがない。[5.3](#53-プロファイル-taskapp-を作るターミナル) をやり直す |
 | `Backend initialization required` | `terraform init` がまだ。`scripts/infra-init.sh` |
-| `basic_auth_password` の入力を求められる | `infra/terraform.tfvars` がない。[7.3](#73-basic-認証のパスワードを決める) |
+| `basic_auth_password` の入力を求められる | `infra/terraform.tfvars` がない。[7.3](#73-basic-認証のパスワードと開いてよい-ip-アドレスを決める) |
 | apply が途中で失敗した | できた分は state に記録されている。原因を直して、もう一度 `plan` → `apply` |
+| 画面を開くと 403 になる（Basic 認証の画面も出ない） | 今の IP アドレスが `allowed_ips` にない。自宅の回線は IP アドレスが変わることがある。`curl -4 https://checkip.amazonaws.com` で調べて `infra/terraform.tfvars` を書き換え、`terraform plan` → `terraform apply` |
 | `Saved plan is stale` | plan のあとに state が変わった。`terraform plan -out=tfplan` からやり直す |
 | `./mvnw package` が失敗する | Java 21 が入っていない、またはコードがコンパイルできない。ローカルで `cd backend && ./mvnw test` を確かめる |
 | 画面は出るが API が 502・503・504 になる | バックエンドが起動していない（`deploy-backend.sh` をまだ実行していない、起動に失敗した など）。下の方法でログを見る |
