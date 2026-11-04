@@ -51,6 +51,6 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: maven
-      # Testcontainers はランナーの Docker で PostgreSQL を起動する（Colima 用の環境変数は要らない）
+      # Testcontainers はランナーの Docker で DynamoDB Local を起動する（Colima 用の環境変数は要らない）
       - name: テスト（JUnit・Testcontainers）
         run: ./mvnw -B test

@@ -18,12 +18,7 @@ output "cloudfront_distribution_id" {
   value = aws_cloudfront_distribution.main.id
 }
 
-output "ecr_repository_url" {
-  description = "バックエンドのイメージの置き場所"
-  value       = aws_ecr_repository.backend.repository_url
-}
-
-output "backend_instance_id" {
-  description = "バックエンドの EC2（aws ssm start-session --target で中に入れる）"
-  value       = aws_instance.backend.id
+output "backend_function_name" {
+  description = "バックエンドの Lambda 関数（scripts/deploy-backend.sh がコードを入れ替える）"
+  value       = aws_lambda_function.backend.function_name
 }

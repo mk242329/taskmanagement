@@ -1,6 +1,6 @@
 #!/bin/bash
 # dev-start.sh で起動したバックエンドとフロントエンドを止める。
-# DB（PostgreSQL のコンテナ）は止めない。止めるときは docker compose down。
+# DB（DynamoDB Local のコンテナ）は止めない。止めるときは docker compose down。
 set -euo pipefail
 source "$(dirname "$0")/dev-common.sh"
 

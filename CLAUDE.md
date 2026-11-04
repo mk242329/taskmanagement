@@ -37,7 +37,7 @@ main への直接コミット・プッシュは `.claude/hooks/guard-main-branch
 - サーバーの起動・再起動・停止は必ず `scripts/dev-start.sh`・`scripts/dev-stop.sh` で行う（手順は `.claude/skills/dev-servers/SKILL.md`）
 - ポートが競合したら、**そのポートを使っているプロセスを止めて**、決められたポートで起動する。`scripts/dev-start.sh` はこれを自動で行う
 - 別のポートで一時的に起動するのは禁止。`--port` や `server.port` で別の番号を指定したり、`vite.config.ts` の `strictPort` や `application.yml` のポートを変えたりしない
-- 5432（PostgreSQL）は Colima がコンテナに転送しているため、そのプロセスは止めない
+- 8000（DynamoDB Local）は Colima がコンテナに転送しているため、そのプロセスは止めない
 
 別のポートを指定した起動コマンドは `.claude/hooks/guard-dev-ports.sh` が機械的にブロックする。ブロックされたら回避策を探さず、`scripts/dev-start.sh` を使うこと。
 

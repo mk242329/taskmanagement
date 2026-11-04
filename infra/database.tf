@@ -1,35 +1,39 @@
-# RDS for PostgreSQL 17
-# テーブルはバックエンドの起動時に Flyway が作る
+# DynamoDB のテーブル
+# キーの名前と型は backend の LocalTableCreator（ローカル用にテーブルを作る処理）とそろえる。
+#
+# 無料枠（Always Free）は「アカウント全体で読み込み 25・書き込み 25 のキャパシティユニットと 25 GB」まで。
+# 使った分だけ払う「オンデマンド」は無料枠の対象外なので、決まった量を確保する「プロビジョンド」にする。
+# 2 つのテーブルの合計（読み込み 12・書き込み 12）を 25 以下に収めている
 
-resource "aws_db_subnet_group" "main" {
-  name       = "${var.project}-db"
-  subnet_ids = aws_subnet.private[*].id
+# カード（1 枚が 1 つの項目。キーは id）
+resource "aws_dynamodb_table" "cards" {
+  name           = "${var.project}-cards"
+  billing_mode   = "PROVISIONED"
+  read_capacity  = 10
+  write_capacity = 10
+  hash_key       = "id"
+
+  attribute {
+    name = "id"
+    type = "N"
+  }
+
+  # 学習用のため、terraform destroy で消せるようにしておく（消すとカードも消える）
+  deletion_protection_enabled = false
 }
 
-resource "aws_db_instance" "main" {
-  identifier     = "${var.project}-db"
-  engine         = "postgres"
-  engine_version = "17"
-  instance_class = var.db_instance_class
+# カードの id の連番（PostgreSQL の自動採番の代わり）
+resource "aws_dynamodb_table" "counters" {
+  name           = "${var.project}-counters"
+  billing_mode   = "PROVISIONED"
+  read_capacity  = 2
+  write_capacity = 2
+  hash_key       = "name"
 
-  allocated_storage = 20
-  storage_type      = "gp3"
-  storage_encrypted = true
+  attribute {
+    name = "name"
+    type = "S"
+  }
 
-  db_name  = "taskapp"
-  username = "taskapp"
-  # パスワードは AWS が生成して Secrets Manager に保管する。コードにも state にも残らない
-  manage_master_user_password = true
-
-  db_subnet_group_name   = aws_db_subnet_group.main.name
-  vpc_security_group_ids = [aws_security_group.db.id]
-  publicly_accessible    = false
-  multi_az               = false
-
-  backup_retention_period = 7
-
-  # 学習用のため、terraform destroy で消せるようにしておく。
-  # 消すとデータも消えるので、残したいときは destroy の前にスナップショットを取る
-  deletion_protection = false
-  skip_final_snapshot = true
+  deletion_protection_enabled = false
 }

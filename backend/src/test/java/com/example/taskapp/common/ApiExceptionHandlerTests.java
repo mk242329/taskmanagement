@@ -14,7 +14,7 @@ class ApiExceptionHandlerTests {
 
 	@Test
 	void 予期しないエラーは500とエラーメッセージを返す() {
-		// DB に接続できないときなど
+		// DB（DynamoDB）に接続できないときなど
 		ResponseEntity<ErrorResponse> response = handler.handleOther(new IllegalStateException("接続できません"));
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);

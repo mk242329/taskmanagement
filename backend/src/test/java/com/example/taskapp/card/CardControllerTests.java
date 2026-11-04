@@ -12,7 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.util.List;
+import java.time.OffsetDateTime;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,12 +21,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.taskapp.TestcontainersConfiguration;
 
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, CardTestData.class })
 @SpringBootTest
 @AutoConfigureMockMvc
 class CardControllerTests {
@@ -35,19 +34,16 @@ class CardControllerTests {
 	private MockMvc mockMvc;
 
 	@Autowired
-	private JdbcTemplate jdbcTemplate;
+	private CardTestData testData;
 
 	@BeforeEach
 	void setUp() {
-		jdbcTemplate.execute("TRUNCATE card RESTART IDENTITY");
-		// わざと表示順と違う順番で入れる
-		jdbcTemplate.update("""
-				INSERT INTO card (title, description, due_at, strict, list_id, position) VALUES
-				    ('完了したカード',   '',       NULL,                         false, 'done',  0),
-				    ('作業中のカード',   '',       NULL,                         false, 'doing', 0),
-				    ('未着手の2枚目',    '',       NULL,                         false, 'todo',  1),
-				    ('未着手の1枚目',    '説明文', '2026-10-08 09:00:00+09',      true,  'todo',  0)
-				""");
+		testData.clear();
+		// わざと表示順と違う順番で入れる（id は 1〜4）
+		testData.insert("完了したカード", "done", 0);
+		testData.insert("作業中のカード", "doing", 0);
+		testData.insert("未着手の2枚目", "todo", 1);
+		testData.insert("未着手の1枚目", "説明文", OffsetDateTime.parse("2026-10-08T09:00:00+09:00"), true, "todo", 0);
 	}
 
 	@Test
@@ -67,7 +63,7 @@ class CardControllerTests {
 
 	@Test
 	void カードがないときは空の配列を返す() throws Exception {
-		jdbcTemplate.execute("TRUNCATE card");
+		testData.clear();
 
 		mockMvc.perform(get("/api/cards"))
 				.andExpect(status().isOk())
@@ -163,7 +159,7 @@ class CardControllerTests {
 
 	@Test
 	void カードがないリストに追加すると並び順は0になる() throws Exception {
-		jdbcTemplate.execute("TRUNCATE card");
+		testData.clear();
 
 		mockMvc.perform(post("/api/cards")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -184,7 +180,7 @@ class CardControllerTests {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.errors.title").value("タイトルを入力してください"));
 
-		assertThat(countCards()).isEqualTo(4);
+		assertThat(testData.count()).isEqualTo(4);
 	}
 
 	@Test
@@ -234,7 +230,7 @@ class CardControllerTests {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value("リストが見つかりません（listId=unknown）"));
 
-		assertThat(countCards()).isEqualTo(4);
+		assertThat(testData.count()).isEqualTo(4);
 	}
 
 	@Test
@@ -333,8 +329,8 @@ class CardControllerTests {
 				.andExpect(jsonPath("$[3].id").value(1));
 
 		// 保存されている
-		assertThat(positions("todo")).containsExactly("3:0");
-		assertThat(positions("doing")).containsExactly("4:0", "2:1");
+		assertThat(testData.positions("todo")).containsExactly("3:0");
+		assertThat(testData.positions("doing")).containsExactly("4:0", "2:1");
 	}
 
 	@Test
@@ -346,7 +342,7 @@ class CardControllerTests {
 						"""))
 				.andExpect(status().isOk());
 
-		assertThat(positions("done")).containsExactly("1:0", "4:1");
+		assertThat(testData.positions("done")).containsExactly("1:0", "4:1");
 	}
 
 	@Test
@@ -358,12 +354,12 @@ class CardControllerTests {
 						"""))
 				.andExpect(status().isOk());
 
-		assertThat(positions("doing")).containsExactly("2:0", "4:1");
+		assertThat(testData.positions("doing")).containsExactly("2:0", "4:1");
 	}
 
 	@Test
 	void 同じリストの中で並び替えられる() throws Exception {
-		jdbcTemplate.update("INSERT INTO card (title, list_id, position) VALUES ('未着手の3枚目', 'todo', 2)");
+		testData.insert("未着手の3枚目", "todo", 2);
 
 		// 一番下（id=5）を一番上へ
 		mockMvc.perform(patch("/api/cards/5/move")
@@ -376,7 +372,7 @@ class CardControllerTests {
 				.andExpect(jsonPath("$[1].id").value(4))
 				.andExpect(jsonPath("$[2].id").value(3));
 
-		assertThat(positions("todo")).containsExactly("5:0", "4:1", "3:2");
+		assertThat(testData.positions("todo")).containsExactly("5:0", "4:1", "3:2");
 
 		// 一番上（id=5）を一番下へ
 		mockMvc.perform(patch("/api/cards/5/move")
@@ -386,7 +382,7 @@ class CardControllerTests {
 						"""))
 				.andExpect(status().isOk());
 
-		assertThat(positions("todo")).containsExactly("4:0", "3:1", "5:2");
+		assertThat(testData.positions("todo")).containsExactly("4:0", "3:1", "5:2");
 	}
 
 	@Test
@@ -413,7 +409,7 @@ class CardControllerTests {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.errors.position").value("並び順は0以上で指定してください"));
 
-		assertThat(positions("todo")).containsExactly("4:0", "3:1");
+		assertThat(testData.positions("todo")).containsExactly("4:0", "3:1");
 	}
 
 	@Test
@@ -428,7 +424,7 @@ class CardControllerTests {
 
 	@Test
 	void カードを削除すると204を返し残ったカードの並び順を詰め直す() throws Exception {
-		jdbcTemplate.update("INSERT INTO card (title, list_id, position) VALUES ('未着手の3枚目', 'todo', 2)");
+		testData.insert("未着手の3枚目", "todo", 2);
 
 		// 未着手の1枚目（id=4）を削除
 		mockMvc.perform(delete("/api/cards/4"))
@@ -436,10 +432,10 @@ class CardControllerTests {
 
 		mockMvc.perform(get("/api/cards/4"))
 				.andExpect(status().isNotFound());
-		assertThat(countCards()).isEqualTo(4);
-		assertThat(positions("todo")).containsExactly("3:0", "5:1");
+		assertThat(testData.count()).isEqualTo(4);
+		assertThat(testData.positions("todo")).containsExactly("3:0", "5:1");
 		// ほかのリストは変わらない
-		assertThat(positions("doing")).containsExactly("2:0");
+		assertThat(testData.positions("doing")).containsExactly("2:0");
 	}
 
 	@Test
@@ -448,17 +444,7 @@ class CardControllerTests {
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.message").value("カードが見つかりません（id=999）"));
 
-		assertThat(countCards()).isEqualTo(4);
-	}
-
-	/** リストのカードを並び順に「id:並び順」の形で返す */
-	private List<String> positions(String listId) {
-		return jdbcTemplate.queryForList(
-				"SELECT id || ':' || position FROM card WHERE list_id = ? ORDER BY position, id", String.class, listId);
-	}
-
-	private int countCards() {
-		return jdbcTemplate.queryForObject("SELECT count(*) FROM card", Integer.class);
+		assertThat(testData.count()).isEqualTo(4);
 	}
 
 }

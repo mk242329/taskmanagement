@@ -1,16 +1,14 @@
 spring:
   application:
     name: taskapp
-  datasource:
-    # 開発用。docker-compose.yml の db サービスに接続する
-    url: jdbc:postgresql://localhost:5432/taskapp
-    username: taskapp
-    password: taskapp
-  jpa:
-    hibernate:
-      # テーブルは Flyway で作るため、JPA にはチェックだけさせる
-      ddl-auto: validate
-    open-in-view: false
 
 server:
   port: 8080
+
+taskapp:
+  dynamodb:
+    # 開発用。docker-compose.yml の db サービス（DynamoDB Local）に接続し、テーブルがなければ作る
+    endpoint: http://localhost:8000
+    cards-table: taskapp-cards
+    counters-table: taskapp-counters
+    create-tables: true

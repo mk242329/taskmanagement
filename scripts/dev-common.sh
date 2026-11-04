@@ -4,7 +4,7 @@
 # 決められたポート。変えるときは application.yml・vite.config.ts・CLAUDE.md もそろえる
 BACKEND_PORT=8080    # backend/src/main/resources/application.yml の server.port
 FRONTEND_PORT=5173   # frontend/vite.config.ts の server.port
-DB_PORT=5432         # docker-compose.yml の db の ports
+DB_PORT=8000         # docker-compose.yml の db（DynamoDB Local）の ports
 
 # スクリプトを実行したリポジトリ（作業ツリー）を対象にする
 ROOT=$(git rev-parse --show-toplevel)

@@ -1,6 +1,6 @@
 ---
 name: dev-servers
-description: このアプリの開発サーバー（PostgreSQL・バックエンド 8080・フロントエンド 5173）を起動・再起動・停止する。動作確認のためにアプリを動かすとき、サーバーを起動・再起動するとき、ポートが競合したときに使う。
+description: このアプリの開発サーバー（DynamoDB Local 8000・バックエンド 8080・フロントエンド 5173）を起動・再起動・停止する。動作確認のためにアプリを動かすとき、サーバーを起動・再起動するとき、ポートが競合したときに使う。
 ---
 
 # 開発サーバーの起動・停止
@@ -11,7 +11,7 @@ description: このアプリの開発サーバー（PostgreSQL・バックエン
 |---|---|---|
 | バックエンド（Spring Boot） | 8080 | `backend/src/main/resources/application.yml` |
 | フロントエンド（Vite） | 5173 | `frontend/vite.config.ts`（`strictPort: true`） |
-| PostgreSQL（Docker Compose） | 5432 | `docker-compose.yml` |
+| DynamoDB Local（Docker Compose） | 8000 | `docker-compose.yml` |
 
 フロントエンドは `/api` を 8080 に転送しているため、どちらかが別のポートで動くと画面から API を呼べなくなる。
 
@@ -40,5 +40,5 @@ docker compose down             # DB も止めるとき
 
 - `--port 5174` や `--server.port=8081` のように別のポートを指定して起動しない（`.claude/hooks/guard-dev-ports.sh` がブロックする）
 - `vite.config.ts` の `strictPort` を外したり、`application.yml` のポートを変えたりして逃げない
-- 5432 は Colima がコンテナに転送しているポートなので、そのプロセス（ssh）は止めない
+- 8000 は Colima がコンテナに転送しているポートなので、そのプロセス（ssh）は止めない
 - 起動に失敗したら、ポートを変えるのではなくログを読んで原因を直す

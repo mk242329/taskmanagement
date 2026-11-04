@@ -1,6 +1,6 @@
 #!/bin/bash
 # バックエンドを AWS にデプロイする。
-# イメージをビルドして ECR に push し、EC2 の上でコンテナを起動し直す。
+# jar をビルドし、起動スクリプト（backend/lambda/run.sh）と一緒に zip にして、Lambda のコードを入れ替える。
 #   使い方: scripts/deploy-backend.sh
 set -euo pipefail
 
@@ -12,24 +12,23 @@ tf_output() {
 }
 
 REGION=$(tf_output region)
-REPO=$(tf_output ecr_repository_url)
-INSTANCE_ID=$(tf_output backend_instance_id)
+FUNCTION=$(tf_output backend_function_name)
 
-echo "== イメージをビルドして ECR に push します"
-aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "${REPO%%/*}"
-# EC2 は Graviton（arm64）なので arm64 でビルドする
-docker build --platform linux/arm64 -t "$REPO:latest" "$ROOT/backend"
-docker push "$REPO:latest"
+echo "== jar をビルドします（テストは CI で動かしているので、ここでは飛ばす）"
+(cd "$ROOT/backend" && ./mvnw -B -q package -DskipTests)
 
-echo "== EC2 でコンテナを起動し直します"
-COMMAND_ID=$(aws ssm send-command --region "$REGION" \
-  --instance-ids "$INSTANCE_ID" \
-  --document-name AWS-RunShellScript \
-  --parameters 'commands=["/opt/taskapp/restart.sh"]' \
-  --query Command.CommandId --output text)
+echo "== Lambda に入れる zip を作ります"
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+cp "$ROOT"/backend/target/taskapp-*.jar "$WORK/taskapp.jar"
+cp "$ROOT/backend/lambda/run.sh" "$WORK/run.sh"
+chmod 755 "$WORK/run.sh"
+(cd "$WORK" && zip -q -X lambda.zip taskapp.jar run.sh)
 
-aws ssm wait command-executed --region "$REGION" --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" || true
-aws ssm get-command-invocation --region "$REGION" --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
-  --query '{status: Status, output: StandardOutputContent, error: StandardErrorContent}' --output yaml
+echo "== Lambda のコードを入れ替えます"
+aws lambda update-function-code --region "$REGION" --function-name "$FUNCTION" \
+  --zip-file "fileb://$WORK/lambda.zip" --query LastUpdateStatus --output text
+aws lambda wait function-updated-v2 --region "$REGION" --function-name "$FUNCTION"
 
 echo "== 完了: $(tf_output app_url)"
+echo "   最初のアクセスは Spring Boot の起動を待つため、数秒かかります"

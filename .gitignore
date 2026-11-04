@@ -8,3 +8,5 @@ infra/.terraform/
 *.tfvars
 !*.tfvars.example
 crash.log
+# terraform plan -out=tfplan で保存した plan（中にパスワードなどが入る）
+infra/tfplan
