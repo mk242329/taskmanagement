@@ -29,7 +29,7 @@ AWS・Terraform を初めて使う人が、このアプリを AWS 上で動か�
 | 用意するもの | AWS アカウント（管理者の IAM ユーザーでコンソールにログインできる）、Mac、このリポジトリ |
 | 必要なツール | AWS CLI v2、Terraform 1.10 以上、Java 21（バックエンドのビルド）、Node.js 24（画面のビルド）（`brew install awscli hashicorp/tap/terraform`） |
 | 所要時間 | 認証の設定に 30 分、初回のデプロイに 15 分ほど |
-| 費用 | 月 12 ドルほど（EC2 と固定の IP アドレス）。DynamoDB は無料枠の範囲（[2.3 料金](#23-料金と構成の選び方)） |
+| 費用 | ほぼ 0 円。2026 年 12 月 31 日までは EC2 が無料で、動かしている時間の IP アドレスの分（1 時間 0.005 ドル）とディスクの分（月 0.8 ドルほど）だけかかる（[2.3 料金](#23-料金と構成の選び方)） |
 
 ## 2. AWS の基本
 
@@ -58,11 +58,11 @@ flowchart LR
 
 | サービス・仕組み | 役割 | 自分のパソコンでは |
 | --- | --- | --- |
-| EC2 | 仮想のサーバー。この中で nginx と Spring Boot を動かす。種類は t4g.micro（arm64、メモリ 1 GB） | 自分のパソコン |
+| EC2 | 仮想のサーバー。この中で nginx と Spring Boot を動かす。種類は t4g.small（arm64、メモリ 2 GB） | 自分のパソコン |
 | nginx | EC2 の入口（80）。画面のファイル（HTML・JS・CSS）を返し、`/api/*` は Spring Boot へ転送する | Vite の開発サーバー（5173）と、その `/api` 転送 |
 | Spring Boot | API のサーバー。systemd（Linux でプログラムを起動・管理する仕組み）が起動し、止まったら起動し直す | `./mvnw spring-boot:run`（8080） |
 | セキュリティグループ | EC2 のファイアウォール。SSH（22）と HTTP（80）を、自分の PC の IP アドレスからだけ通す。8080 は外に開けない | なし |
-| Elastic IP | 固定の IP アドレス。EC2 を止めて起動し直しても、URL と SSH の接続先が変わらない | `localhost` |
+| パブリック IP アドレス | インターネットから EC2 につなぐためのアドレス。EC2 を起動するたびに AWS が割り当てるので、止めて起動し直すと変わる | `localhost` |
 | キーペア | SSH でログインするための鍵。公開鍵だけを AWS に登録し、秘密鍵（`~/.ssh/taskapp-ec2`）は自分の PC から出さない | なし |
 | DynamoDB | AWS が管理するデータベース（キーで項目を読み書きする NoSQL） | Docker Compose の DynamoDB Local（8000） |
 | IAM | 「誰が・何を・どこまでできるか」の権限の仕組み | なし |
@@ -71,13 +71,14 @@ flowchart LR
 
 ### 2.3 料金と構成の選び方
 
-スクールの課題で EC2 を使う構成が求められているため、EC2 を 1 台だけ置き、画面も API もその中で動かす。料金がかかるのは主に次のものである（東京リージョン、24 時間動かしたままの場合）。
+スクールの課題で EC2 を使う構成が求められているため、EC2 を 1 台だけ置き、画面も API もその中で動かす。料金ができるだけかからないよう、次のようにしている（東京リージョン）。
 
-| もの | 料金（毎月） | 減らし方 |
+| もの | 料金 | 減らし方 |
 | --- | --- | --- |
-| EC2 t4g.micro | 約 8 ドル | 使わないあいだは止める（止めている時間はかからない） |
-| Elastic IP（パブリック IPv4） | 約 3.6 ドル | EC2 を止めていてもかかる。使わなくなったら `terraform destroy` |
-| EBS（ディスク 8 GB） | 約 0.8 ドル | ― |
+| EC2 t4g.small | 2026 年 12 月 31 日までは月 750 時間まで無料（1 台を 24 時間動かしても収まる）。2027 年からは月 16 ドルほど | 使わないあいだは止める。課題が終わったら `terraform destroy` |
+| CPU の追加の料金 | 0 円 | `cpu_credits = "standard"` にして、決められた量より多く CPU を使えないようにしている |
+| パブリック IPv4 | 動かしている時間だけ、1 時間 0.005 ドル（24 時間動かすと月 3.6 ドル） | 使わないあいだは止める。止めている時間はかからない。止めていてもかかる Elastic IP（固定の IP アドレス）は使わない |
+| EBS（ディスク 8 GB） | 月 0.8 ドルほど（止めていてもかかる） | 課題が終わったら `terraform destroy` |
 | DynamoDB | 0 円（無料枠の範囲） | 2 つのテーブルで読み込み・書き込み各 12 を確保（[`infra/database.tf`](../infra/database.tf)）。無料枠は各 25 まで |
 
 EC2 を止める・起動するのは、次のコマンドでできる（Terraform の管理する設定は変わらないので、plan に差は出ない）。
@@ -86,7 +87,7 @@ EC2 を止める・起動するのは、次のコマンドでできる（Terrafo
 aws ec2 stop-instances --instance-ids $(aws ec2 describe-instances --filters Name=tag:Name,Values=taskapp-app --query 'Reservations[].Instances[].InstanceId' --output text --profile taskapp) --profile taskapp
 ```
 
-起動するときは `stop-instances` を `start-instances` に変える。
+起動するときは `stop-instances` を `start-instances` に変える。起動し直すと IP アドレスが変わるので、`terraform -chdir=infra apply -refresh-only` で新しいアドレスを読み直してから `terraform output` を見る（`scripts/deploy-*.sh` は毎回 AWS に問い合わせるので、そのまま使える）。
 
 次のものは料金や手間を減らすために使っていない。
 
@@ -94,7 +95,8 @@ aws ec2 stop-instances --instance-ids $(aws ec2 describe-instances --filters Nam
 | --- | --- | --- |
 | RDS（PostgreSQL） | 月 15〜20 ドルほど余分にかかる | DynamoDB |
 | ロードバランサー（ALB） | 月 20 ドルほどかかる。EC2 が 1 台なので要らない | nginx |
-| 独自のドメインと HTTPS の証明書 | ドメインの料金がかかり、設定も増える | Elastic IP の IP アドレスに HTTP でつなぐ。セキュリティグループで自分の PC からだけに絞る |
+| 独自のドメインと HTTPS の証明書 | ドメインの料金がかかり、設定も増える | EC2 の IP アドレスに HTTP でつなぐ。セキュリティグループで自分の PC からだけに絞る |
+| Elastic IP（固定の IP アドレス） | EC2 を止めていても月 3.6 ドルかかる | 起動のたびに割り当てられる IP アドレス |
 | Secrets Manager | 秘密 1 つにつき月 0.4 ドル | DynamoDB は IAM ロールで読み書きするため、パスワードが要らない |
 
 ### 2.4 IAM の言葉
@@ -163,7 +165,6 @@ state はパソコンに置くとなくしたときに Terraform が AWS の中�
 ### 3.4 plan の読み方
 
 ```text
-  + resource "aws_eip" "app" { ... }                  # 作る
   ~ resource "aws_security_group" "app" {            # その場で変更する
   - resource "aws_key_pair" "old" { ... }            # 消す
 -/+ resource "aws_instance" "app" { ... }            # 消してから作り直す
@@ -180,7 +181,7 @@ Plan: 1 to add, 1 to change, 1 to destroy.
 | `versions.tf` | Terraform・provider の版、state の置き場所、すべてに付けるタグ（`Project = taskapp`） |
 | `variables.tf` | 変えられる値（リージョン、許可する IP アドレス、EC2 の種類、SSH の公開鍵のファイル） |
 | `database.tf` | DynamoDB のテーブル（カード・連番）。無料枠に収まる容量を確保する |
-| `backend.tf` | EC2 とそのセキュリティグループ・IAM ロール・キーペア・Elastic IP |
+| `backend.tf` | EC2 とそのセキュリティグループ・IAM ロール・キーペア |
 | `outputs.tf` | URL などの表示する値 |
 | `templates/user-data.sh.tftpl` | EC2 を最初に起動したときに動くスクリプト。Java 21（Amazon Corretto）と nginx を入れ、Spring Boot を systemd で動かす設定と、nginx の設定を書く |
 
@@ -211,7 +212,7 @@ CLI はまだ認証情報を持っていないので、ここだけはマネジ�
 ### 5.1 アカウントを守る設定（コンソール）
 
 1. ルートユーザーと、今使っている管理者の IAM ユーザーに MFA（スマートフォンの認証アプリ）が設定されているか確認する。なければ設定する
-2. 「Billing and Cost Management」→「Budgets」で、月 15 ドルなどの予算を作り、超えそうなときにメールが届くようにする（EC2 の消し忘れや、設定の誤りで料金が増えたときにすぐ気づける）
+2. 「Billing and Cost Management」→「Budgets」で、月 1 ドルなどの予算を作り、超えそうなときにメールが届くようにする（EC2 の消し忘れや、設定の誤りで料金が増えたときにすぐ気づける）
 
 ### 5.2 IAM Identity Center の準備（コンソール）
 
@@ -334,7 +335,7 @@ cd infra
 terraform plan -out=tfplan
 ```
 
-初回はすべて新しく作るので `+` だけが並び（EC2・セキュリティグループ・IAM ロール・キーペア・Elastic IP・DynamoDB のテーブルなど）、最後に `Plan: N to add, 0 to change, 0 to destroy.` と表示される。`-out=tfplan` で、確認した内容をそのまま次の apply に使えるよう保存する。
+初回はすべて新しく作るので `+` だけが並び（EC2・セキュリティグループ・IAM ロール・キーペア・DynamoDB のテーブルなど）、最後に `Plan: N to add, 0 to change, 0 to destroy.` と表示される。`-out=tfplan` で、確認した内容をそのまま次の apply に使えるよう保存する。
 
 ### 7.5 作る
 
@@ -417,7 +418,7 @@ nginx のログは `/var/log/nginx/`、EC2 を最初に起動したときの準�
 
 ## 10. 後片付け
 
-EC2 と Elastic IP は置いておくだけで料金がかかるので、使わなくなったら消しておく。**DB のデータも消える**。Claude Code は実行しないので、自分で実行する。
+EC2 のディスクは止めていても料金がかかり、2027 年からは EC2 も有料になるので、使わなくなったら消しておく。**DB のデータも消える**。Claude Code は実行しないので、自分で実行する。
 
 ```bash
 cd infra

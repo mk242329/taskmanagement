@@ -323,7 +323,7 @@ cd .. && scripts/deploy-backend.sh && scripts/deploy-frontend.sh
 
 ### 費用と後片付け
 
-EC2（t4g.micro）と固定の IP アドレスで、月 12 ドルほどかかります（DynamoDB は無料枠の範囲）。使わないあいだは EC2 を止めると、EC2 の分はかからなくなります（IP アドレスの分はかかります）。使わなくなったら `cd infra && terraform destroy` ですべて消します（DB のデータも消えます）。state 用の S3 バケットは Terraform の管理外なので、最後に手で消します。
+EC2（t4g.small）は 2026 年 12 月 31 日まで無料です。かかるのは、動かしている時間の IP アドレスの分（1 時間 0.005 ドル）と、ディスクの分（月 0.8 ドルほど）だけです（DynamoDB は無料枠の範囲）。使わないあいだは EC2 を止めてください。止めると IP アドレスが変わります。使わなくなったら `cd infra && terraform destroy` ですべて消します（DB のデータも消えます）。state 用の S3 バケットは Terraform の管理外なので、最後に手で消します。
 
 ## 開発の進め方
 

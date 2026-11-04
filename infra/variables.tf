@@ -21,9 +21,9 @@ variable "allowed_ips" {
 }
 
 variable "instance_type" {
-  description = "EC2 の種類。t4g.micro（arm64・メモリ 1 GB）は東京で月 8 ドルほど"
+  description = "EC2 の種類。t4g.small（arm64・メモリ 2 GB）は 2026 年 12 月 31 日まで、月 750 時間まで無料"
   type        = string
-  default     = "t4g.micro"
+  default     = "t4g.small"
 }
 
 variable "ssh_public_key_path" {

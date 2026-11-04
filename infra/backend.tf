@@ -105,6 +105,14 @@ resource "aws_instance" "app" {
   iam_instance_profile   = aws_iam_instance_profile.app.name
   key_name               = aws_key_pair.app.key_name
 
+  # IP アドレスは固定せず（Elastic IP は止めていても料金がかかる）、起動のたびに AWS が割り当てる
+  associate_public_ip_address = true
+
+  # CPU を決められた量より多く使ったときに、追加の料金がかからないようにする
+  credit_specification {
+    cpu_credits = "standard"
+  }
+
   # IMDSv2 だけを許可する（インスタンスの認証情報を盗まれにくくする）
   metadata_options {
     http_tokens = "required"
@@ -132,11 +140,4 @@ resource "aws_instance" "app" {
   }
 
   tags = { Name = local.app_name }
-}
-
-# EC2 を止めて起動し直してもアドレスが変わらないよう、固定の IP を付ける
-resource "aws_eip" "app" {
-  instance = aws_instance.app.id
-  domain   = "vpc"
-  tags     = { Name = local.app_name }
 }

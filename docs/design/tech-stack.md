@@ -93,13 +93,13 @@ Next.js は今回使わない。React は Vite で作る、ブラウザだけで
 
 | 項目 | 内容 | 料金（毎月） |
 | --- | --- | --- |
-| サーバー | EC2 t4g.micro（arm64、メモリ 1 GB）、Amazon Linux 2023、Amazon Corretto 21。デフォルトの VPC に置く | 約 8 ドル |
-| 固定の IP アドレス | Elastic IP | 約 3.6 ドル |
+| サーバー | EC2 t4g.small（arm64、メモリ 2 GB）、Amazon Linux 2023、Amazon Corretto 21。デフォルトの VPC に置く。CPU の追加の料金がかからないよう `cpu_credits = "standard"` にする | 2026 年 12 月 31 日まで無料 |
+| IP アドレス | 起動のたびに割り当てられるパブリック IPv4（止めている間もかかる Elastic IP は使わない） | 動かしている時間だけ 1 時間 0.005 ドル |
 | 入口・画面の配信 | EC2 の中の nginx（80）。`/api/*` は同じ EC2 の Spring Boot（8080）へ転送する | ― |
 | 通信の制限 | セキュリティグループで、SSH（22）と HTTP（80）を `allowed_ips` の IP アドレスからだけ許可する | ― |
 | Spring Boot の起動 | systemd（`taskapp.service`）。止まったら自動で起動し直す | ― |
 | データベース | DynamoDB（プロビジョンド）。EC2 には IAM ロールで読み書きの権限を渡す | 無料枠（読み込み・書き込み各 25 キャパシティユニット、25 GB）の範囲 |
-| ディスク | EBS gp3 8 GB | 約 0.8 ドル |
+| ディスク | EBS gp3 8 GB | 月 0.8 ドルほど |
 | インフラの管理 | Terraform（AWS プロバイダー 6.71） | ― |
 
 対応ブラウザなどの動作環境は [非機能要件](../requirements/non-functional.md) にまとめる。

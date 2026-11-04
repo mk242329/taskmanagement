@@ -114,7 +114,7 @@
 
 - 技術構成：最初は HTML + CSS + JavaScript（ドラッグ＆ドロップは SortableJS）に決め、プロトタイプを作った。その後、バックエンドを Java + Spring Boot、フロントエンドを React、データベースを PostgreSQL に変更した。Next.js は使わない（2026年10月6日）
 - データベース：AWS の無料枠（Always Free）で動かすため、PostgreSQL から DynamoDB に変更した。あわせて、AWS の構成を EC2・RDS から Lambda・DynamoDB に変更した（2026年11月4日）
-- AWS の構成：スクールの課題で EC2 を使う構成が求められているため、Lambda・CloudFront・S3 をやめ、EC2（nginx と Spring Boot）に戻した。DB は DynamoDB のまま（2026年11月4日）
+- AWS の構成：スクールの課題で EC2 を使う構成が求められているため、Lambda・CloudFront・S3 をやめ、EC2（nginx と Spring Boot）に戻した。DB は DynamoDB のまま。料金がかからないよう、2026 年末まで無料の t4g.small を使い、Elastic IP は付けない（2026年11月4日）
 - 自動並べ替え：今回は作らない。将来追加したい機能に移す
 - 期限切れの色分け：作る（F-09）
 - 優先度：利用者が選ぶのをやめ、期限と時間厳守から自動で決める（F-10、2026年10月6日）

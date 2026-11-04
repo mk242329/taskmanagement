@@ -5,7 +5,7 @@ set -eux
 
 dnf install -y java-21-amazon-corretto-headless nginx
 
-# メモリが 1 GB しかないので、足りなくなったときのために 1 GB のスワップを作る
+# メモリ（2 GB）が足りなくなったときのために、1 GB のスワップを作る
 fallocate -l 1G /swapfile
 chmod 600 /swapfile
 mkswap /swapfile

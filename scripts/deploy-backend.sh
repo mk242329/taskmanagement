@@ -28,4 +28,4 @@ ssh "${SSH_OPTS[@]}" "ec2-user@$HOST" '
   exit 1
 '
 
-echo "== 完了: $(tf_output app_url)"
+echo "== 完了: http://$HOST"

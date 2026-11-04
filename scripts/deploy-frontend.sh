@@ -18,4 +18,4 @@ tar -C "$ROOT/frontend/dist" -czf - . | ssh "${SSH_OPTS[@]}" "ec2-user@$HOST" '
   sudo tar -xzf - -C /opt/taskapp/frontend --no-same-owner
 '
 
-echo "== 完了: $(tf_output app_url)"
+echo "== 完了: http://$HOST"
