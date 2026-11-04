@@ -12,7 +12,7 @@ npm --prefix "$ROOT/frontend" ci
 npm --prefix "$ROOT/frontend" run build
 
 echo "== EC2（$HOST）に画面のファイルを送ります"
-tar -C "$ROOT/frontend/dist" -czf - . | ssh "${SSH_OPTS[@]}" "ec2-user@$HOST" '
+tar -C "$ROOT/frontend/dist" --no-xattrs -czf - . | ssh "${SSH_OPTS[@]}" "ec2-user@$HOST" '
   set -e
   sudo find /opt/taskapp/frontend -mindepth 1 -delete
   sudo tar -xzf - -C /opt/taskapp/frontend --no-same-owner
