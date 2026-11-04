@@ -12,7 +12,7 @@
       "Bash(scripts/deploy-backend.sh:*)",
       "Bash(scripts/deploy-frontend.sh:*)",
       "Bash(aws s3 sync:*)",
-      "Bash(aws ssm send-command:*)"
+      "Bash(aws lambda update-function-code:*)"
     ],
     "deny": [
       "Bash(terraform destroy:*)",
