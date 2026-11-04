@@ -63,7 +63,7 @@
 | [機能一覧](requirements/features.md) | 必須機能 F-01〜F-11 の一覧（F-08 は欠番）。ボード表示、カードの追加・編集・削除、ドラッグ＆ドロップでの移動・並び替え、自動保存、期限切れの表示、優先度の自動判定、チェックでの移動。各機能と設計・テストの対応表も載せる |
 | [機能要件](requirements/functional.md) | 各機能が満たすべきルール。タイトルは1〜50文字、説明文は500文字まで、優先度は期限と時間厳守から自動で決める、削除は取り消せないため確認を表示する、など |
 | [画面要件](requirements/screens.md) | 画面 SC-01〜SC-03 の一覧と、各画面で表示する情報・できる操作。メインはボード画面とカード編集ウィンドウの2つ |
-| [非機能要件](requirements/non-functional.md) | パソコン版 Chrome のみ対応、操作の反映は1秒以内、データは DynamoDB に保存、AWS では Basic 認証をかけて無料枠の範囲で動かす、バックアップなし |
+| [非機能要件](requirements/non-functional.md) | パソコン版 Chrome のみ対応、操作の反映は1秒以内、データは DynamoDB に保存、AWS では EC2 で動かし、自分の PC の IP アドレスからだけつなげる、バックアップなし |
 
 ### 3.2 設計
 
@@ -114,6 +114,7 @@
 
 - 技術構成：最初は HTML + CSS + JavaScript（ドラッグ＆ドロップは SortableJS）に決め、プロトタイプを作った。その後、バックエンドを Java + Spring Boot、フロントエンドを React、データベースを PostgreSQL に変更した。Next.js は使わない（2026年10月6日）
 - データベース：AWS の無料枠（Always Free）で動かすため、PostgreSQL から DynamoDB に変更した。あわせて、AWS の構成を EC2・RDS から Lambda・DynamoDB に変更した（2026年11月4日）
+- AWS の構成：スクールの課題で EC2 を使う構成が求められているため、Lambda・CloudFront・S3 をやめ、EC2（nginx と Spring Boot）に戻した。DB は DynamoDB のまま（2026年11月4日）
 - 自動並べ替え：今回は作らない。将来追加したい機能に移す
 - 期限切れの色分け：作る（F-09）
 - 優先度：利用者が選ぶのをやめ、期限と時間厳守から自動で決める（F-10、2026年10月6日）

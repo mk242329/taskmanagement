@@ -15,11 +15,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
-    # 最初に Lambda を作るときの仮のコード（zip）を作る
-    archive = {
-      source  = "hashicorp/archive"
-      version = "~> 2.7"
-    }
   }
 }
 

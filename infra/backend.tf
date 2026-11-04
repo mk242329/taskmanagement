@@ -1,125 +1,142 @@
-# バックエンド：Spring Boot を Lambda で動かす
-# Lambda Web Adapter（AWS が公開しているレイヤー）が、受け取ったリクエストを Lambda の中の Spring Boot（8080）に HTTP で渡す。
-# そのため、Spring Boot のコードは Lambda 用に書き換えずに動く。
-# リクエストがないときは何も動かず、料金もかからない（最初のリクエストで起動するため、数秒待つことがある）
+# アプリを動かす EC2：nginx が画面を配信し、/api は同じ EC2 の Spring Boot（8080）へ転送する
+# （開発中の Vite の /api プロキシと同じ形）。データは DynamoDB に保存する
 
 locals {
-  backend_function_name = "${var.project}-backend"
-  # Lambda Web Adapter のレイヤー（arm64 用）。https://github.com/awslabs/aws-lambda-web-adapter
-  web_adapter_layer_arn = "arn:aws:lambda:${var.region}:753240598075:layer:LambdaAdapterLayerArm64:30"
+  app_name = "${var.project}-app"
 }
 
-# Lambda が使う IAM ロール：ログを書く・DynamoDB のテーブルを読み書きする
-resource "aws_iam_role" "backend" {
-  name = local.backend_function_name
+# 新しく VPC は作らず、AWS が最初から用意しているデフォルトの VPC とサブネットを使う
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnet" "default" {
+  vpc_id            = data.aws_vpc.default.id
+  availability_zone = "${var.region}a"
+  default_for_az    = true
+}
+
+# 自分の PC からだけ、SSH（22）と画面（80）につなげるようにする
+resource "aws_security_group" "app" {
+  name        = local.app_name
+  description = "SSH and HTTP from allowed_ips only"
+  vpc_id      = data.aws_vpc.default.id
+
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [for ip in var.allowed_ips : "${ip}/32"]
+  }
+
+  ingress {
+    description = "HTTP (nginx)"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = [for ip in var.allowed_ips : "${ip}/32"]
+  }
+
+  # Java・nginx のインストールと、DynamoDB への接続に使う
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = { Name = local.app_name }
+}
+
+# EC2 が使う IAM ロール：DynamoDB のテーブルを読み書きする（アクセスキーを EC2 に置かずに済む）
+resource "aws_iam_role" "app" {
+  name = local.app_name
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
-      Principal = { Service = "lambda.amazonaws.com" }
+      Principal = { Service = "ec2.amazonaws.com" }
       Action    = "sts:AssumeRole"
     }]
   })
 }
 
-resource "aws_iam_role_policy" "backend" {
-  name = "logs-and-dynamodb"
-  role = aws_iam_role.backend.id
+resource "aws_iam_role_policy" "app" {
+  name = "dynamodb"
+  role = aws_iam_role.app.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
-        Resource = "${aws_cloudwatch_log_group.backend.arn}:*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "dynamodb:GetItem",
-          "dynamodb:PutItem",
-          "dynamodb:UpdateItem",
-          "dynamodb:DeleteItem",
-          "dynamodb:Scan",
-        ]
-        Resource = [aws_dynamodb_table.cards.arn, aws_dynamodb_table.counters.arn]
-      },
-    ]
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Scan",
+      ]
+      Resource = [aws_dynamodb_table.cards.arn, aws_dynamodb_table.counters.arn]
+    }]
   })
 }
 
-# ログの置き場所。ログは無料枠（月 5 GB）に収まるよう、7 日で消す
-resource "aws_cloudwatch_log_group" "backend" {
-  name              = "/aws/lambda/${local.backend_function_name}"
-  retention_in_days = 7
+resource "aws_iam_instance_profile" "app" {
+  name = local.app_name
+  role = aws_iam_role.app.name
 }
 
-# 最初に作るときだけ使う仮のコード。本物は scripts/deploy-backend.sh がアップロードする
-data "archive_file" "backend_placeholder" {
-  type        = "zip"
-  output_path = "${path.module}/.terraform/backend-placeholder.zip"
-
-  source {
-    filename = "run.sh"
-    content  = "#!/bin/bash\necho 'scripts/deploy-backend.sh でバックエンドをデプロイしてください' >&2\nexit 1\n"
-  }
+# SSH でログインするための鍵（公開鍵だけを AWS に登録する。秘密鍵は自分の PC から出さない）
+resource "aws_key_pair" "app" {
+  key_name   = local.app_name
+  public_key = file(pathexpand(var.ssh_public_key_path))
 }
 
-resource "aws_lambda_function" "backend" {
-  function_name = local.backend_function_name
-  role          = aws_iam_role.backend.arn
-  runtime       = "java21"
-  architectures = ["arm64"]
-  # Lambda Web Adapter が実行する起動スクリプト（backend/lambda/run.sh）
-  handler = "run.sh"
-  layers  = [local.web_adapter_layer_arn]
+# Amazon Linux 2023（arm64）の最新の AMI
+data "aws_ssm_parameter" "al2023_arm64" {
+  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64"
+}
 
-  filename         = data.archive_file.backend_placeholder.output_path
-  source_code_hash = data.archive_file.backend_placeholder.output_base64sha256
+resource "aws_instance" "app" {
+  ami                    = data.aws_ssm_parameter.al2023_arm64.value
+  instance_type          = var.instance_type
+  subnet_id              = data.aws_subnet.default.id
+  vpc_security_group_ids = [aws_security_group.app.id]
+  iam_instance_profile   = aws_iam_instance_profile.app.name
+  key_name               = aws_key_pair.app.key_name
 
-  # メモリを増やすと CPU も増え、起動が速くなる。無料枠は「メモリ（GB）× 秒」で月 40 万までなので、個人で使う分には十分収まる
-  memory_size = var.backend_memory_mb
-  timeout     = 30
-
-  environment {
-    variables = {
-      AWS_LAMBDA_EXEC_WRAPPER = "/opt/bootstrap"
-      # Spring Boot の起動を Lambda の初期化（10 秒まで）の外で待つ。起動に 10 秒以上かかっても失敗しない
-      AWS_LWA_ASYNC_INIT     = "true"
-      SPRING_PROFILES_ACTIVE = "aws"
-      TASKAPP_CARDS_TABLE    = aws_dynamodb_table.cards.name
-      TASKAPP_COUNTERS_TABLE = aws_dynamodb_table.counters.name
-    }
+  # IMDSv2 だけを許可する（インスタンスの認証情報を盗まれにくくする）
+  metadata_options {
+    http_tokens = "required"
   }
+
+  root_block_device {
+    volume_type = "gp3"
+    volume_size = 8
+    encrypted   = true
+  }
+
+  # 最初の起動のときに、Java・nginx・Spring Boot の起動設定を入れる
+  user_data = templatefile("${path.module}/templates/user-data.sh.tftpl", {
+    region         = var.region
+    cards_table    = aws_dynamodb_table.cards.name
+    counters_table = aws_dynamodb_table.counters.name
+  })
+
+  # user-data の中身が変わったら、EC2 を作り直して反映する
+  user_data_replace_on_change = true
 
   lifecycle {
-    # コードは scripts/deploy-backend.sh が入れ替えるので、Terraform では仮のコードに戻さない
-    ignore_changes = [filename, source_code_hash]
+    # 新しい AMI が出るたびに EC2 が作り直されないようにする
+    ignore_changes = [ami]
   }
 
-  depends_on = [aws_cloudwatch_log_group.backend, aws_iam_role_policy.backend]
+  tags = { Name = local.app_name }
 }
 
-# CloudFront から呼ぶための URL。AWS_IAM にして、署名のないリクエスト（CloudFront を通らないもの）は断る
-resource "aws_lambda_function_url" "backend" {
-  function_name      = aws_lambda_function.backend.function_name
-  authorization_type = "AWS_IAM"
-}
-
-# この CloudFront のディストリビューションからだけ、関数 URL を呼べるようにする（2 つとも必要）
-resource "aws_lambda_permission" "cloudfront_url" {
-  statement_id           = "AllowCloudFrontInvokeFunctionUrl"
-  action                 = "lambda:InvokeFunctionUrl"
-  function_name          = aws_lambda_function.backend.function_name
-  principal              = "cloudfront.amazonaws.com"
-  source_arn             = aws_cloudfront_distribution.main.arn
-  function_url_auth_type = "AWS_IAM"
-}
-
-resource "aws_lambda_permission" "cloudfront_invoke" {
-  statement_id  = "AllowCloudFrontInvokeFunction"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.backend.function_name
-  principal     = "cloudfront.amazonaws.com"
-  source_arn    = aws_cloudfront_distribution.main.arn
+# EC2 を止めて起動し直してもアドレスが変わらないよう、固定の IP を付ける
+resource "aws_eip" "app" {
+  instance = aws_instance.app.id
+  domain   = "vpc"
+  tags     = { Name = local.app_name }
 }

@@ -1,9 +1,9 @@
-# AWS（Lambda）で動かすときの設定。Lambda の環境変数 SPRING_PROFILES_ACTIVE=aws で有効になる
+# AWS（EC2）で動かすときの設定。systemd の環境変数 SPRING_PROFILES_ACTIVE=aws で有効になる
 taskapp:
   dynamodb:
-    # 空にすると、AWS の DynamoDB（Lambda と同じリージョン）につなぐ
+    # 空にすると、AWS の DynamoDB（環境変数 AWS_REGION のリージョン）につなぐ
     endpoint: ""
-    # テーブルは Terraform（infra/database.tf）が作る。名前は Lambda の環境変数で渡す
+    # テーブルは Terraform（infra/database.tf）が作る。名前は systemd の環境変数で渡す（infra/templates/user-data.sh.tftpl）
     cards-table: ${TASKAPP_CARDS_TABLE}
     counters-table: ${TASKAPP_COUNTERS_TABLE}
     create-tables: false

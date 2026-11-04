@@ -79,7 +79,7 @@ flowchart LR
 | フロントエンド | TypeScript 7.0.2、React 19.3.0、Vite 8.3.4、dnd-kit（@dnd-kit/core 6.3.1・@dnd-kit/sortable 10.0.0） |
 | フロントエンドのパッケージ管理 | npm 11.19.0（Node.js 24.21.0） |
 | データベース | DynamoDB（開発中は DynamoDB Local 3.3.2 を Docker Compose で起動） |
-| AWS | CloudFront、S3、Lambda（Lambda Web Adapter）、DynamoDB。すべて無料枠の範囲。Terraform で管理 |
+| AWS | EC2（Amazon Linux 2023・Java 21・nginx）、DynamoDB。Terraform で管理 |
 | テスト | JUnit 6、Testcontainers 2.0（DynamoDB Local を起動する。バックエンド）／Vitest 5.0、React Testing Library 16.3（フロントエンド） |
 | コードチェック | oxlint 1.87、Prettier 3.9 |
 | 開発環境 | Colima 0.10.3、Docker 29.8.2、Docker Compose 5.6.0、Git 2.39.5、GitHub CLI 2.101.0 |
@@ -281,47 +281,49 @@ PR は、両方のジョブが成功してからマージします。
 
 ## AWS へのデプロイ
 
-AWS の環境は `infra/` の Terraform で作り、アプリは `scripts/deploy-*.sh` で載せます。マネジメントコンソールは使いません。個人で使うアプリなので、AWS の無料枠（Always Free）だけで動く構成にしています。
+AWS の環境は `infra/` の Terraform で作り、アプリは `scripts/deploy-*.sh` で載せます。マネジメントコンソールは使いません。EC2 を 1 台だけ置き、画面も API もその中で動かします。データは DynamoDB に保存します。
 
 AWS・Terraform を初めて使うときや、認証（`taskapp` プロファイル）の設定から始めるときは、[AWS デプロイ入門ガイド](docs/aws-deploy-guide.md) を参照してください。
 
 ```mermaid
 flowchart LR
-    Browser[ブラウザ] --> CF[CloudFront<br>IP アドレスの確認・Basic 認証]
-    CF -- "/api/* 以外" --> S3[(S3<br>画面)]
-    CF -- "/api/*" --> Lambda[Lambda<br>Spring Boot]
-    Lambda --> DDB[(DynamoDB)]
+    Browser[ブラウザ] -- "HTTP（80）" --> Nginx
+    subgraph EC2["EC2（セキュリティグループ：22・80 を自分の IP だけ許可）"]
+        Nginx[nginx<br>画面] -- "/api/*" --> Boot[Spring Boot<br>8080]
+    end
+    Boot --> DDB[(DynamoDB)]
 ```
 
 ### 必要なもの
 
 - AWS CLI v2・Terraform 1.10 以上（`brew install awscli hashicorp/tap/terraform`）
 - IAM Identity Center（SSO）のプロファイル `taskapp`（`aws configure sso` で作る）。ほかの名前にするときは `AWS_PROFILE` を設定する
+- EC2 に SSH でつなぐための鍵 `~/.ssh/taskapp-ec2`（`ssh-keygen -t ed25519 -f ~/.ssh/taskapp-ec2`）
 
 ### 初めて作るとき
 
 ```bash
 aws sso login --profile taskapp
 scripts/infra-init.sh                                   # state 用の S3 バケットを作り、terraform init する
-cp infra/terraform.tfvars.example infra/terraform.tfvars  # Basic 認証のパスワードと、自分の PC の IP アドレスを書く
+cp infra/terraform.tfvars.example infra/terraform.tfvars  # 自分の PC の IP アドレスを書く
 cd infra && terraform plan -out=tfplan                  # 作られるものを確認する
-terraform apply tfplan                                  # 5 分ほどかかる（CloudFront の作成待ち）
+terraform apply tfplan                                  # 1 分ほどかかる。EC2 の中の準備（Java・nginx）は起動後さらに 2〜3 分
 cd .. && scripts/deploy-backend.sh && scripts/deploy-frontend.sh
 ```
 
-最後に表示される URL を開き、`terraform.tfvars` に書いたユーザー名とパスワードでログインします。`allowed_ips` に書いた IP アドレス以外からは 403 になります。自宅の回線などは IP アドレスが変わることがあるので、開けなくなったら `curl -4 https://checkip.amazonaws.com` で今の IP アドレスを調べて `allowed_ips` を書き換え、`terraform plan` → `terraform apply` し直します。
+最後に表示される URL（`http://<EC2 の IP アドレス>`）を開きます。EC2 には `terraform output -raw ssh_command` で表示されるコマンドで SSH ログインできます。`allowed_ips` に書いた IP アドレス以外からは、SSH も画面もつながりません。自宅の回線などは IP アドレスが変わることがあるので、つながらなくなったら `curl -4 https://checkip.amazonaws.com` で今の IP アドレスを調べて `allowed_ips` を書き換え、`terraform plan` → `terraform apply` し直します。
 
 ### コードを変えたあと
 
-- バックエンド：`scripts/deploy-backend.sh`（jar をビルドして zip にし、Lambda のコードを入れ替える）
-- フロントエンド：`scripts/deploy-frontend.sh`（ビルドして S3 に置き、CloudFront のキャッシュを消す）
+- バックエンド：`scripts/deploy-backend.sh`（jar をビルドして SSH で EC2 に送り、Spring Boot を起動し直す）
+- フロントエンド：`scripts/deploy-frontend.sh`（ビルドして SSH で EC2 に送り、nginx が配信する場所に置き換える）
 - インフラ：`infra/` を直して `terraform plan` → 確認 → `terraform apply`
 
-バックエンドのログは `aws logs tail /aws/lambda/taskapp-backend --follow --profile taskapp` で見ます。しばらく使わないと Lambda が止まるため、次の最初のアクセスは Spring Boot の起動を待って数秒かかります。
+バックエンドのログは、EC2 に SSH でログインして `sudo journalctl -u taskapp -f` で見ます。
 
 ### 費用と後片付け
 
-無料枠の範囲で動くため、個人で使う分には月 0 円です（無料枠の対象外の S3 も、数 MB のため月 1 円未満）。使わなくなったら `cd infra && terraform destroy` ですべて消します（DB のデータも消えます）。state 用の S3 バケットは Terraform の管理外なので、最後に手で消します。
+EC2（t4g.micro）と固定の IP アドレスで、月 12 ドルほどかかります（DynamoDB は無料枠の範囲）。使わないあいだは EC2 を止めると、EC2 の分はかからなくなります（IP アドレスの分はかかります）。使わなくなったら `cd infra && terraform destroy` ですべて消します（DB のデータも消えます）。state 用の S3 バケットは Terraform の管理外なので、最後に手で消します。
 
 ## 開発の進め方
 

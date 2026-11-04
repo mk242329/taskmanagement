@@ -1,34 +1,31 @@
 #!/bin/bash
 # バックエンドを AWS にデプロイする。
-# jar をビルドし、起動スクリプト（backend/lambda/run.sh）と一緒に zip にして、Lambda のコードを入れ替える。
+# jar をビルドして SSH で EC2 に送り、Spring Boot（systemd の taskapp）を起動し直す。
 #   使い方: scripts/deploy-backend.sh
 set -euo pipefail
 
-export AWS_PROFILE=${AWS_PROFILE:-taskapp}
 ROOT=$(git rev-parse --show-toplevel)
-
-tf_output() {
-  terraform -chdir="$ROOT/infra" output -raw "$1"
-}
-
-REGION=$(tf_output region)
-FUNCTION=$(tf_output backend_function_name)
+source "$ROOT/scripts/deploy-common.sh"
 
 echo "== jar をビルドします（テストは CI で動かしているので、ここでは飛ばす）"
 (cd "$ROOT/backend" && ./mvnw -B -q package -DskipTests)
 
-echo "== Lambda に入れる zip を作ります"
-WORK=$(mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
-cp "$ROOT"/backend/target/taskapp-*.jar "$WORK/taskapp.jar"
-cp "$ROOT/backend/lambda/run.sh" "$WORK/run.sh"
-chmod 755 "$WORK/run.sh"
-(cd "$WORK" && zip -q -X lambda.zip taskapp.jar run.sh)
+echo "== EC2（$HOST）に jar を送ります"
+scp "${SSH_OPTS[@]}" "$ROOT"/backend/target/taskapp-*.jar "ec2-user@$HOST:/tmp/taskapp.jar"
 
-echo "== Lambda のコードを入れ替えます"
-aws lambda update-function-code --region "$REGION" --function-name "$FUNCTION" \
-  --zip-file "fileb://$WORK/lambda.zip" --query LastUpdateStatus --output text
-aws lambda wait function-updated-v2 --region "$REGION" --function-name "$FUNCTION"
+echo "== Spring Boot を起動し直します"
+ssh "${SSH_OPTS[@]}" "ec2-user@$HOST" '
+  set -e
+  sudo install -m 644 /tmp/taskapp.jar /opt/taskapp/taskapp.jar
+  rm /tmp/taskapp.jar
+  sudo systemctl restart taskapp
+  # API が応答するまで待つ（最大 90 秒）
+  for _ in $(seq 90); do
+    curl -sf -o /dev/null http://localhost:8080/api/cards && exit 0
+    sleep 1
+  done
+  echo "Spring Boot が起動しませんでした。ログ：sudo journalctl -u taskapp -n 50" >&2
+  exit 1
+'
 
 echo "== 完了: $(tf_output app_url)"
-echo "   最初のアクセスは Spring Boot の起動を待つため、数秒かかります"

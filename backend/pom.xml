@@ -50,7 +50,7 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc</artifactId>
 		</dependency>
-		<!-- DynamoDB の操作。Lambda での起動を軽くするため、HTTP クライアントは JDK 標準のものだけにする -->
+		<!-- DynamoDB の操作。依存を減らして起動を軽くするため、HTTP クライアントは JDK 標準のものだけにする -->
 		<dependency>
 			<groupId>software.amazon.awssdk</groupId>
 			<artifactId>dynamodb</artifactId>
