@@ -135,8 +135,10 @@ resource "aws_instance" "app" {
   user_data_replace_on_change = true
 
   lifecycle {
-    # 新しい AMI が出るたびに EC2 が作り直されないようにする
-    ignore_changes = [ami]
+    # 新しい AMI が出るたびに EC2 が作り直されないようにする。
+    # また、止めている間は IP アドレスが外れて associate_public_ip_address が false と読まれるので、
+    # その違いで作り直されないようにする
+    ignore_changes = [ami, associate_public_ip_address]
   }
 
   tags = { Name = local.app_name }
