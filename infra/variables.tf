@@ -27,6 +27,16 @@ variable "basic_auth_password" {
   }
 }
 
+variable "allowed_ips" {
+  description = "画面を開いてよい IP アドレス（IPv4）の一覧。自宅の回線などは IP アドレスが変わることがあるので、そのときは書き換えて apply し直す"
+  type        = list(string)
+
+  validation {
+    condition     = length(var.allowed_ips) > 0 && alltrue([for ip in var.allowed_ips : can(regex("^\\d{1,3}(\\.\\d{1,3}){3}$", ip))])
+    error_message = "allowed_ips には IPv4 アドレス（例：203.0.113.10）を 1 つ以上書いてください。範囲（/24 など）は書けません。"
+  }
+}
+
 variable "backend_memory_mb" {
   description = "バックエンドの Lambda のメモリ（MB）。増やすと CPU も増え、起動が速くなる"
   type        = number
