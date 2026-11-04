@@ -19,3 +19,13 @@ output "ssh_command" {
   description = "EC2 に SSH でログインするコマンド"
   value       = "ssh -i ${trimsuffix(var.ssh_public_key_path, ".pub")} ec2-user@${aws_instance.app.public_ip}"
 }
+
+output "rds_endpoint" {
+  description = "RDS の接続先（enable_rds が true のときだけ）"
+  value       = one(aws_db_instance.app[*].address)
+}
+
+output "rds_secret_arn" {
+  description = "RDS のパスワードが入った Secrets Manager の ARN（enable_rds が true のときだけ）"
+  value       = one(aws_db_instance.app[*].master_user_secret[0].secret_arn)
+}
