@@ -93,11 +93,11 @@ aws ec2 stop-instances --instance-ids $(aws ec2 describe-instances --filters Nam
 
 | 使っていないもの | 理由 | 代わりに使うもの |
 | --- | --- | --- |
-| RDS（PostgreSQL） | 月 15〜20 ドルほど余分にかかる | DynamoDB |
+| RDS（PostgreSQL）を置いたままにすること | 動かしていると月 20 ドルほどかかる。止めても 7 日たつと自動で起動する | アプリのデータは DynamoDB に置く。RDS は接続を確かめるときだけ作り、終わったら消す（[7.9](#79-rds-に-ec2-からだけつながることを確かめる)） |
 | ロードバランサー（ALB） | 月 20 ドルほどかかる。EC2 が 1 台なので要らない | nginx |
 | 独自のドメインと HTTPS の証明書 | ドメインの料金がかかり、設定も増える | EC2 の IP アドレスに HTTP でつなぐ。セキュリティグループで自分の PC からだけに絞る |
 | Elastic IP（固定の IP アドレス） | EC2 を止めていても月 3.6 ドルかかる | 起動のたびに割り当てられる IP アドレス |
-| Secrets Manager | 秘密 1 つにつき月 0.4 ドル | DynamoDB は IAM ロールで読み書きするため、パスワードが要らない |
+| Secrets Manager（アプリ用） | 秘密 1 つにつき月 0.4 ドル | DynamoDB は IAM ロールで読み書きするため、パスワードが要らない（RDS を作っている間だけ、RDS のパスワードを置く） |
 
 ### 2.4 IAM の言葉
 
@@ -182,6 +182,7 @@ Plan: 1 to add, 1 to change, 1 to destroy.
 | `variables.tf` | 変えられる値（リージョン、許可する IP アドレス、EC2 の種類、SSH の公開鍵のファイル） |
 | `database.tf` | DynamoDB のテーブル（カード・連番）。無料枠に収まる容量を確保する |
 | `backend.tf` | EC2 とそのセキュリティグループ・IAM ロール・キーペア |
+| `rds.tf` | RDS（PostgreSQL）と、EC2 からだけ 5432 を通すセキュリティグループ。`enable_rds = true` のときだけ作る |
 | `outputs.tf` | URL などの表示する値 |
 | `templates/user-data.sh.tftpl` | EC2 を最初に起動したときに動くスクリプト。Java 21（Amazon Corretto）と nginx を入れ、Spring Boot を systemd で動かす設定と、nginx の設定を書く |
 
@@ -379,6 +380,41 @@ $(terraform -chdir=infra output -raw ssh_command)
 ### 7.8 開いて確かめる
 
 最後に表示される URL（`http://<EC2 の IP アドレス>`）をブラウザで開く。カードを追加・移動し、再読み込みしても残っていれば完成である。
+
+### 7.9 RDS に EC2 からだけつながることを確かめる
+
+RDS（AWS が管理する PostgreSQL）を作り、EC2 からだけ接続できることを確かめる。アプリのデータは DynamoDB に置いているので、RDS は接続の確認だけに使う。動かしているあいだ 1 時間 0.03 ドルほどかかるため、ふだんは作らず（`enable_rds = false`）、確かめるときだけ作って、終わったら消す。
+
+| 設定 | 内容 |
+| --- | --- |
+| RDS | PostgreSQL 18、db.t4g.micro、ディスク 20 GB（暗号化）。1 台だけで、バックアップは取らない |
+| インターネットからの接続 | `publicly_accessible = false`。インターネットからつなぐためのアドレスを持たない |
+| セキュリティグループ | 5432 を、EC2 のセキュリティグループが付いたものからだけ通す（IP アドレスでは許可しない） |
+| パスワード | RDS が作って Secrets Manager に置く（`manage_master_user_password`）。コードにも state にも残らない |
+
+1. EC2 を起動しておく（[2.3](#23-料金と構成の選び方)）
+2. RDS を作る。作るのに 5〜10 分かかる
+
+   ```bash
+   cd infra
+   terraform plan -var=enable_rds=true -out=tfplan   # 3 to add（RDS・サブネットグループ・セキュリティグループ）
+   terraform apply tfplan
+   cd ..
+   ```
+
+3. 確かめる。自分の PC から 5432 につながらないことと、EC2 から psql で接続してテーブルを作り、読み書きできることを確かめる（確認用のテーブルは最後に消す。psql がなければ EC2 に入れる）
+
+   ```bash
+   scripts/rds-check.sh
+   ```
+
+4. 消す。`-var=enable_rds=true` を付けずに plan すると、RDS の 3 つが削除（`-`）になる
+
+   ```bash
+   cd infra
+   terraform plan -out=tfplan   # 3 to destroy
+   terraform apply tfplan
+   ```
 
 ## 8. 2 回目以降のデプロイ
 

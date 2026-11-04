@@ -31,3 +31,9 @@ variable "ssh_public_key_path" {
   type        = string
   default     = "~/.ssh/taskapp-ec2.pub"
 }
+
+variable "enable_rds" {
+  description = "RDS（PostgreSQL）を作るか。動かしているあいだ料金がかかるので、接続を確かめるときだけ true にする（infra/rds.tf）"
+  type        = bool
+  default     = false
+}

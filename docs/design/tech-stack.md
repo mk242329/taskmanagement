@@ -100,6 +100,7 @@ Next.js は今回使わない。React は Vite で作る、ブラウザだけで
 | Spring Boot の起動 | systemd（`taskapp.service`）。止まったら自動で起動し直す | ― |
 | データベース | DynamoDB（プロビジョンド）。EC2 には IAM ロールで読み書きの権限を渡す | 無料枠（読み込み・書き込み各 25 キャパシティユニット、25 GB）の範囲 |
 | ディスク | EBS gp3 8 GB | 月 0.8 ドルほど |
+| RDS（接続の確認用） | PostgreSQL 18（db.t4g.micro）。EC2 のセキュリティグループからの 5432 だけを許可し、インターネットには公開しない。パスワードは Secrets Manager。ふだんは作らない（`enable_rds = false`） | 作っている時間だけ 1 時間 0.03 ドルほど |
 | インフラの管理 | Terraform（AWS プロバイダー 6.71） | ― |
 
 対応ブラウザなどの動作環境は [非機能要件](../requirements/non-functional.md) にまとめる。
