@@ -16,6 +16,6 @@ tf_output() {
 HOST=$(aws ec2 describe-instances --instance-ids "$(tf_output instance_id)" \
   --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
 if [[ $HOST == None ]]; then
-  echo "EC2 が止まっています。起動してから実行してください（docs/aws-deploy-guide.md の 2.3）" >&2
+  echo "EC2 が止まっています。起動してから実行してください（README の「EC2 を止める・起動する」）" >&2
   exit 1
 fi

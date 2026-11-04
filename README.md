@@ -26,7 +26,7 @@ Trello 風のタスク管理アプリです。「未着手」「作業中」「�
 | --- | --- |
 | 利用者 | 自分ひとり（ログイン・共有機能は不要） |
 | 用途 | 仕事のタスクや勉強の進み具合の管理 |
-| 動作環境 | パソコン版 Chrome。自分のパソコンの中だけで動かす |
+| 動作環境 | パソコン版 Chrome。開発中は自分のパソコン、AWS では EC2 で動かし、自分の PC からだけつなぐ |
 
 ### リストとカード
 
@@ -100,9 +100,8 @@ Next.js は使わず、React は Vite で作るブラウザだけで動く画面
 | 設計 | [画面設計](docs/design/screen-design.md) | 画面遷移図と画面レイアウト |
 | | [データベース設計](docs/design/database.md) | データの関係と DynamoDB のテーブル定義 |
 | | [データフロー](docs/design/data-flow.md) | データの流れ、API 一覧、期限切れ・優先度の判定条件 |
-| | [技術スタック](docs/design/tech-stack.md) | 使う技術とバージョン、開発環境、AWS の構成、ファイル構成 |
+| | [技術スタック](docs/design/tech-stack.md) | 使う技術とバージョン、開発環境、AWS のインフラ構成と主な設定、ファイル構成 |
 | テスト | [テスト仕様書](docs/test-spec.md) | 機能と非機能要件を確認する手順 |
-| デプロイ | [AWS デプロイ入門ガイド](docs/aws-deploy-guide.md) | AWS・Terraform・IaC の解説、認証の設定、デプロイと後片付けの手順 |
 | 開発ルール | [CLAUDE.md](CLAUDE.md) | イシュー・ブランチ・PR の進め方、開発サーバーのポート |
 
 ## リポジトリの構成
@@ -281,9 +280,7 @@ PR は、両方のジョブが成功してからマージします。
 
 ## AWS へのデプロイ
 
-AWS の環境は `infra/` の Terraform で作り、アプリは `scripts/deploy-*.sh` で載せます。マネジメントコンソールは使いません。EC2 を 1 台だけ置き、画面も API もその中で動かします。データは DynamoDB に保存します。
-
-AWS・Terraform を初めて使うときや、認証（`taskapp` プロファイル）の設定から始めるときは、[AWS デプロイ入門ガイド](docs/aws-deploy-guide.md) を参照してください。
+AWS の環境は `infra/` の Terraform で作り、アプリは `scripts/deploy-*.sh` で載せます。マネジメントコンソールでの手作業はしません。EC2 を 1 台だけ置き、画面も API もその中で動かします。データは DynamoDB に保存します。
 
 ```mermaid
 flowchart LR
@@ -294,36 +291,114 @@ flowchart LR
     Boot --> DDB[(DynamoDB)]
 ```
 
+構成・使うサービス・主な設定・料金の考え方は [技術スタックの「2.5 AWS」](docs/design/tech-stack.md#25-awsインフラ構成) にまとめています。
+
 ### 必要なもの
 
-- AWS CLI v2・Terraform 1.10 以上（`brew install awscli hashicorp/tap/terraform`）
-- IAM Identity Center（SSO）のプロファイル `taskapp`（`aws configure sso` で作る）。ほかの名前にするときは `AWS_PROFILE` を設定する
-- EC2 に SSH でつなぐための鍵 `~/.ssh/taskapp-ec2`（`ssh-keygen -t ed25519 -f ~/.ssh/taskapp-ec2`）
+| もの | 用意のしかた |
+| --- | --- |
+| AWS CLI v2・Terraform 1.10 以上 | `brew install awscli hashicorp/tap/terraform` |
+| AWS のプロファイル `taskapp` | 下の「AWS の認証の設定」で作る。ほかの名前にするときは `AWS_PROFILE` を設定する |
+| SSH の鍵 `~/.ssh/taskapp-ec2` | `ssh-keygen -t ed25519 -f ~/.ssh/taskapp-ec2`。公開鍵（`.pub`）だけを Terraform が AWS に登録する |
+| Java 21・Node.js 24 | jar と画面のビルド（[開発環境の準備](#開発環境の準備)） |
+
+### AWS の認証の設定（初回だけ）
+
+期限のないアクセスキーは使わず、IAM Identity Center（SSO）で数時間だけ有効な認証情報を使います。ここだけはマネジメントコンソールで行います。
+
+1. ルートユーザーと管理者の IAM ユーザーに MFA を設定し、「Budgets」で月 1 ドルなどの予算とメールの通知を作る（料金が増えたときにすぐ気づける）
+2. 東京リージョンで IAM Identity Center を有効にし、自分用のユーザーと、許可セット `AdministratorAccess` を作って、自分のアカウントに割り当てる
+3. 招待メールからパスワードと MFA を設定し、AWS アクセスポータルの URL（`https://d-xxxxxxxxxx.awsapps.com/start`）を控える
+4. ターミナルで `aws configure sso` を実行する。セッション名は `taskapp`、開始 URL は 3 の URL、リージョンは `ap-northeast-1`、ロールは `AdministratorAccess`、プロファイル名は `taskapp` にする
+5. `aws sts get-caller-identity --profile taskapp` でアカウント ID が表示されれば完了
+
+認証は数時間で切れます。`Token has expired` などが出たら `aws sso login --profile taskapp` を実行し、ブラウザで承認します（ブラウザの操作が要るので、Claude Code ではなく自分で実行します）。
 
 ### 初めて作るとき
 
 ```bash
 aws sso login --profile taskapp
-scripts/infra-init.sh                                   # state 用の S3 バケットを作り、terraform init する
-cp infra/terraform.tfvars.example infra/terraform.tfvars  # 自分の PC の IP アドレスを書く
+scripts/infra-init.sh                                   # state 用の S3 バケットを作り、terraform init する（最初に 1 回）
+cp infra/terraform.tfvars.example infra/terraform.tfvars  # allowed_ips に自分の PC の IP アドレス（curl -4 https://checkip.amazonaws.com）を書く
 cd infra && terraform plan -out=tfplan                  # 作られるものを確認する
-terraform apply tfplan                                  # 1 分ほどかかる。EC2 の中の準備（Java・nginx）は起動後さらに 2〜3 分
+terraform apply tfplan                                  # EC2 の中の準備（Java・nginx）は、起動後さらに 2〜3 分かかる
 cd .. && scripts/deploy-backend.sh && scripts/deploy-frontend.sh
 ```
 
-最後に表示される URL（`http://<EC2 の IP アドレス>`）を開きます。EC2 には `terraform output -raw ssh_command` で表示されるコマンドで SSH ログインできます。`allowed_ips` に書いた IP アドレス以外からは、SSH も画面もつながりません。自宅の回線などは IP アドレスが変わることがあるので、つながらなくなったら `curl -4 https://checkip.amazonaws.com` で今の IP アドレスを調べて `allowed_ips` を書き換え、`terraform plan` → `terraform apply` し直します。
+表示される URL（`http://<EC2 の IP アドレス>`）を開き、カードを追加・移動して、再読み込みしても残っていれば完成です。EC2 には `terraform -chdir=infra output -raw ssh_command` で表示されるコマンドで SSH ログインできます（ユーザーは `ec2-user`）。ログインしたら、`java -version`（Java 21）、`systemctl status taskapp nginx`（どちらも `active (running)`）、`curl -s localhost:8080/api/cards`（API が応答する）で中の様子を確かめられます。`allowed_ips` に書いた IP アドレス以外からは、SSH も画面もつながりません。
 
 ### コードを変えたあと
 
-- バックエンド：`scripts/deploy-backend.sh`（jar をビルドして SSH で EC2 に送り、Spring Boot を起動し直す）
-- フロントエンド：`scripts/deploy-frontend.sh`（ビルドして SSH で EC2 に送り、nginx が配信する場所に置き換える）
-- インフラ：`infra/` を直して `terraform plan` → 確認 → `terraform apply`
+| 変えたもの | すること |
+| --- | --- |
+| `backend/` | `scripts/deploy-backend.sh`（jar をビルドして EC2 に送り、Spring Boot を起動し直す。API が応答するまで待つ） |
+| `frontend/` | `scripts/deploy-frontend.sh`（ビルドして EC2 に送り、nginx が配信するファイルを置き換える） |
+| `infra/` | `terraform plan` → 作成・変更・削除の件数と、削除（`-`）・作り直し（`-/+`）になるものを確認 → `terraform apply` |
 
-バックエンドのログは、EC2 に SSH でログインして `sudo journalctl -u taskapp -f` で見ます。
+plan で DynamoDB のテーブルが削除・作り直しになっていたら、カードがすべて消えます。EC2 が作り直しになると、送った jar と画面のファイルが消えるので、apply のあとにデプロイし直します。
+
+### EC2 を止める・起動する
+
+使わないあいだは EC2 を止めます。止めている間は、EC2 と IP アドレスの料金がかかりません。
+
+```bash
+ID=$(terraform -chdir=infra output -raw instance_id)
+aws ec2 stop-instances --instance-ids $ID --profile taskapp    # 止める
+aws ec2 start-instances --instance-ids $ID --profile taskapp   # 起動する
+```
+
+- 起動し直すと IP アドレスが変わります。`terraform -chdir=infra apply -refresh-only` で読み直してから `terraform -chdir=infra output app_url` で新しい URL を見ます（`scripts/deploy-*.sh` は毎回 AWS に問い合わせるので、そのまま使えます）
+- 起動すると Spring Boot と nginx は自動で動き出すので、デプロイし直す必要はありません
+- 「終了（terminate）」は EC2 が消えるので選びません
+
+### RDS に EC2 からだけつながることを確かめる
+
+RDS（PostgreSQL）は、課題で求められている接続設定の確認だけに使います（アプリのデータは DynamoDB）。作っている間は料金がかかるので、ふだんは作らず（`enable_rds = false`）、確かめるときだけ作って、終わったら消します。EC2 を起動してから行います。
+
+```bash
+cd infra
+terraform plan -var=enable_rds=true -out=tfplan   # RDS・サブネットグループ・セキュリティグループの 3 つを作る
+terraform apply tfplan                            # 5〜10 分かかる
+cd .. && scripts/rds-check.sh                     # 自分の PC からつながらないことと、EC2 から読み書きできることを確かめる
+cd infra
+terraform plan -out=tfplan                        # 3 つが削除になる
+terraform apply tfplan
+```
+
+### Claude Code に任せる範囲
+
+AWS の操作は取り返しがつかないものがあるため、`.claude/settings.json` で次のように決めています。あわせて [CLAUDE.md](CLAUDE.md) で、apply の前に plan の結果を見せて承認を取ることにしています。
+
+| 区分 | コマンド |
+| --- | --- |
+| 自動で実行してよい（読むだけ） | `terraform fmt`・`validate`・`plan`・`output`、`aws sts get-caller-identity` |
+| 実行前に確認する（AWS が変わる） | `terraform apply`、`scripts/deploy-*.sh` |
+| 実行しない（人が実行する） | `terraform destroy`、`apply -auto-approve`、`apply -destroy`、`state rm` |
+
+### 困ったとき
+
+| 症状 | 原因と対処 |
+| --- | --- |
+| `Token has expired`、`Error when retrieving token from sso` | 認証が切れている。`aws sso login --profile taskapp` |
+| `Backend initialization required` | `terraform init` がまだ。`scripts/infra-init.sh` |
+| `allowed_ips` の入力を求められる | `infra/terraform.tfvars` がない。上の「初めて作るとき」の `cp` から |
+| `no file exists`（公開鍵） | SSH の鍵 `~/.ssh/taskapp-ec2.pub` がない。`ssh-keygen` で作る |
+| SSH や画面がつながらない（タイムアウト） | EC2 が止まっているか、今の IP アドレスが `allowed_ips` にない。`curl -4 https://checkip.amazonaws.com` で調べて `infra/terraform.tfvars` を書き換え、plan → apply |
+| `EC2 が止まっています` | `scripts/deploy-*.sh` は EC2 を起動してから実行する |
+| `Saved plan is stale` | plan のあとに state が変わった。plan からやり直す |
+| `Permission denied (publickey)` | 鍵 `~/.ssh/taskapp-ec2` とユーザー名 `ec2-user` を確かめる |
+| `REMOTE HOST IDENTIFICATION HAS CHANGED` | EC2 を作り直して鍵が変わった。`ssh-keygen -R <IP アドレス>` で古い鍵を消す |
+| apply の直後に `deploy-backend.sh` が失敗する | EC2 の準備がまだ終わっていない。2〜3 分待ってやり直す |
+| 画面が 403・404 になる | 画面をまだ送っていない。`scripts/deploy-frontend.sh` |
+| 画面は出るが API が 502 になる | Spring Boot が動いていない。下のログを見る |
+
+ログは EC2 に SSH でログインして見ます。Spring Boot は `sudo journalctl -u taskapp -f`、nginx は `/var/log/nginx/`、EC2 の最初の起動時の準備は `/var/log/cloud-init-output.log` です。
 
 ### 費用と後片付け
 
-EC2（t4g.small）は 2026 年 12 月 31 日まで無料です。かかるのは、動かしている時間の IP アドレスの分（1 時間 0.005 ドル）と、ディスクの分（月 0.8 ドルほど）だけです（DynamoDB は無料枠の範囲）。使わないあいだは EC2 を止めてください。止めると IP アドレスが変わります。使わなくなったら `cd infra && terraform destroy` ですべて消します（DB のデータも消えます）。state 用の S3 バケットは Terraform の管理外なので、最後に手で消します。
+料金がほぼかからないようにしています（くわしくは [技術スタックの「料金の考え方」](docs/design/tech-stack.md#料金の考え方)）。EC2（t4g.small）は 2026 年 12 月 31 日まで無料で、かかるのは EC2 を動かしている時間の IP アドレスの分と、ディスクの分だけです。2027 年からは EC2 も有料になります。
+
+使わなくなったら、自分で `cd infra && terraform destroy` を実行してすべて消します（**DB のデータも消えます**）。state 用の S3 バケットは Terraform の管理外なので、最後にコンソールで「空にする」→「削除」します。数日後に「Billing and Cost Management」で料金がかかり続けていないか確かめます（「コスト配分タグ」で `Project` を有効にすると、`Project = taskapp` で絞り込めます）。
 
 ## 開発の進め方
 
