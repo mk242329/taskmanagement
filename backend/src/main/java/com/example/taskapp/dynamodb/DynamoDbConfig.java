@@ -27,7 +27,7 @@ public class DynamoDbConfig {
 					.region(Region.AP_NORTHEAST_1)
 					.credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("local", "local")));
 		}
-		// AWS（Lambda）では、リージョンと認証情報を Lambda が渡す環境変数から読む
+		// AWS（EC2）では、リージョンを環境変数 AWS_REGION から、認証情報を EC2 の IAM ロールから読む
 		return builder.build();
 	}
 

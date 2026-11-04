@@ -1,5 +1,5 @@
 import { mockFetch } from '../test/cards'
-import { ApiError, fetchCards, moveCard, sha256Hex } from './cards'
+import { ApiError, fetchCards, moveCard } from './cards'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -47,19 +47,8 @@ describe('API のエラー', () => {
   })
 })
 
-describe('sha256Hex', () => {
-  it('文字列（UTF-8）の SHA-256 を 16 進数で返す', async () => {
-    expect(await sha256Hex('')).toBe(
-      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-    )
-    expect(await sha256Hex('あ')).toBe(
-      'dc5a4d3d82f7e15792959dc661538ae0e541ce66494516f5c9cfd9cd3308494d',
-    )
-  })
-})
-
 describe('本文のある API', () => {
-  it('本文の SHA-256 を x-amz-content-sha256 ヘッダーで送る', async () => {
+  it('本文を JSON で送る', async () => {
     const fetchMock = mockFetch(200, [])
 
     await moveCard(1, 'done', 0)
@@ -67,9 +56,6 @@ describe('本文のある API', () => {
     const [, init] = fetchMock.mock.calls[0]
     const body = '{"listId":"done","position":0}'
     expect(init?.body).toBe(body)
-    expect(init?.headers).toMatchObject({
-      'Content-Type': 'application/json',
-      'x-amz-content-sha256': await sha256Hex(body),
-    })
+    expect(init?.headers).toEqual({ 'Content-Type': 'application/json' })
   })
 })

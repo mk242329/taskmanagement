@@ -1,8 +1,5 @@
 # このファイルを terraform.tfvars にコピーして値を書き換える（terraform.tfvars は Git に入れない）
 #   cp infra/terraform.tfvars.example infra/terraform.tfvars
 
-basic_auth_user     = "taskapp"
-basic_auth_password = "12文字以上のパスワードに書き換える"
-
-# 画面を開いてよい IP アドレス。今の PC の IP アドレスは curl -4 https://checkip.amazonaws.com で分かる
+# SSH と画面につないでよい IP アドレス。今の PC の IP アドレスは curl -4 https://checkip.amazonaws.com で分かる
 allowed_ips = ["203.0.113.10"]

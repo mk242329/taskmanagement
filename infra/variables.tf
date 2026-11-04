@@ -10,25 +10,8 @@ variable "region" {
   default     = "ap-northeast-1"
 }
 
-variable "basic_auth_user" {
-  description = "画面を開くときの Basic 認証のユーザー名"
-  type        = string
-  default     = "taskapp"
-}
-
-variable "basic_auth_password" {
-  description = "画面を開くときの Basic 認証のパスワード。terraform.tfvars に書き、Git には入れない"
-  type        = string
-  sensitive   = true
-
-  validation {
-    condition     = length(var.basic_auth_password) >= 12
-    error_message = "Basic 認証のパスワードは 12 文字以上にしてください。"
-  }
-}
-
 variable "allowed_ips" {
-  description = "画面を開いてよい IP アドレス（IPv4）の一覧。自宅の回線などは IP アドレスが変わることがあるので、そのときは書き換えて apply し直す"
+  description = "SSH と画面につないでよい IP アドレス（IPv4）の一覧。自宅の回線などは IP アドレスが変わることがあるので、そのときは書き換えて apply し直す"
   type        = list(string)
 
   validation {
@@ -37,8 +20,14 @@ variable "allowed_ips" {
   }
 }
 
-variable "backend_memory_mb" {
-  description = "バックエンドの Lambda のメモリ（MB）。増やすと CPU も増え、起動が速くなる"
-  type        = number
-  default     = 2048
+variable "instance_type" {
+  description = "EC2 の種類。t4g.small（arm64・メモリ 2 GB）は 2026 年 12 月 31 日まで、月 750 時間まで無料"
+  type        = string
+  default     = "t4g.small"
+}
+
+variable "ssh_public_key_path" {
+  description = "EC2 に登録する SSH の公開鍵のファイル"
+  type        = string
+  default     = "~/.ssh/taskapp-ec2.pub"
 }

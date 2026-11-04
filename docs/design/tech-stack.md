@@ -19,7 +19,7 @@ flowchart LR
     API -- "AWS SDK" --> DB[(DynamoDB)]
 ```
 
-AWS では、画面を S3 と CloudFront、サーバーを Lambda で動かす（[2.5 AWS](#25-aws)）。どれも AWS の無料枠（Always Free）に収まるように選んでいる。
+AWS では、EC2 を 1 台置き、画面（nginx）とサーバー（Spring Boot）をその中で動かす（[2.5 AWS](#25-aws)）。
 
 Next.js は今回使わない。React は Vite で作る、ブラウザだけで動く画面（SPA）とする。
 
@@ -89,16 +89,18 @@ Next.js は今回使わない。React は Vite で作る、ブラウザだけで
 
 ### 2.5 AWS
 
-月の料金がかからないよう、AWS の無料枠のうち期限のないもの（Always Free）だけで動かす。手順は [AWS デプロイ入門ガイド](../aws-deploy-guide.md)。
+スクールの課題で EC2 を使う構成が求められているため、EC2 を 1 台置く。DB は無料枠に収まる DynamoDB を使う。手順は [AWS デプロイ入門ガイド](../aws-deploy-guide.md)。
 
-| 項目 | 内容 | 無料枠（毎月） |
+| 項目 | 内容 | 料金（毎月） |
 | --- | --- | --- |
-| 入口・HTTPS・IP アドレスの確認・Basic 認証 | CloudFront（IP アドレスの確認と Basic 認証は CloudFront Functions） | 1 TB の転送、1,000 万リクエスト、関数 200 万回 |
-| 画面のファイル | S3 | 無料枠の対象外だが、数 MB のため月 1 円未満 |
-| サーバー | Lambda（Java 21、arm64）＋ Lambda Web Adapter（レイヤー、版 30）。Spring Boot をそのまま動かす | 100 万リクエスト、40 万 GB 秒 |
-| データベース | DynamoDB（プロビジョンド） | 読み込み・書き込み各 25 キャパシティユニット、25 GB |
-| ログ | CloudWatch Logs（7 日で消す） | 5 GB |
-| インフラの管理 | Terraform（AWS プロバイダー 6.71、archive プロバイダー 2.8） | ― |
+| サーバー | EC2 t4g.small（arm64、メモリ 2 GB）、Amazon Linux 2023、Amazon Corretto 21。デフォルトの VPC に置く。CPU の追加の料金がかからないよう `cpu_credits = "standard"` にする | 2026 年 12 月 31 日まで無料 |
+| IP アドレス | 起動のたびに割り当てられるパブリック IPv4（止めている間もかかる Elastic IP は使わない） | 動かしている時間だけ 1 時間 0.005 ドル |
+| 入口・画面の配信 | EC2 の中の nginx（80）。`/api/*` は同じ EC2 の Spring Boot（8080）へ転送する | ― |
+| 通信の制限 | セキュリティグループで、SSH（22）と HTTP（80）を `allowed_ips` の IP アドレスからだけ許可する | ― |
+| Spring Boot の起動 | systemd（`taskapp.service`）。止まったら自動で起動し直す | ― |
+| データベース | DynamoDB（プロビジョンド）。EC2 には IAM ロールで読み書きの権限を渡す | 無料枠（読み込み・書き込み各 25 キャパシティユニット、25 GB）の範囲 |
+| ディスク | EBS gp3 8 GB | 月 0.8 ドルほど |
+| インフラの管理 | Terraform（AWS プロバイダー 6.71） | ― |
 
 対応ブラウザなどの動作環境は [非機能要件](../requirements/non-functional.md) にまとめる。
 
@@ -117,6 +119,7 @@ taskmanagement/
 │   ├── dev-stop.sh
 │   ├── dev-common.sh
 │   ├── infra-init.sh
+│   ├── deploy-common.sh
 │   ├── deploy-backend.sh
 │   └── deploy-frontend.sh
 ├── infra/                       … AWS の構成（Terraform）
@@ -124,7 +127,6 @@ taskmanagement/
 │   ├── pom.xml
 │   ├── mvnw                     … Maven Wrapper
 │   ├── seed/sample-cards.sh     … 動作確認用のサンプルデータ（API で入れる）
-│   ├── lambda/run.sh            … Lambda で Spring Boot を起動するスクリプト
 │   └── src/
 │       ├── main/
 │       │   ├── java/com/example/taskapp/
@@ -133,7 +135,7 @@ taskmanagement/
 │       │   │   └── dynamodb/    … DynamoDB への接続と、ローカル用のテーブル作成
 │       │   └── resources/
 │       │       ├── application.yml     … 開発用の設定（DynamoDB Local につなぐ）
-│       │       └── application-aws.yml … AWS（Lambda）で動かすときの設定
+│       │       └── application-aws.yml … AWS（EC2）で動かすときの設定
 │       └── test/                … API のテスト（Testcontainers で DynamoDB Local を起動する）
 ├── frontend/                    … React のプロジェクト
 │   ├── package.json
